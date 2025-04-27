@@ -35,6 +35,7 @@ function Key({
         width: width,
         height: "100%",
         border: "1px solid white",
+        boxSizing: "border-box",
         backgroundColor: touched ? "gray" : "black",
         display: "flex",
         alignItems: "center",
@@ -86,6 +87,7 @@ function ModifierKey({
         width: width,
         height: "100%",
         border: "1px solid white",
+        boxSizing: "border-box",
         backgroundColor: pushed ? "gray" : "black",
         display: "flex",
         alignItems: "center",
@@ -101,7 +103,7 @@ function ModifierKey({
 
 export function Keyboard({ ws }: { ws: WebSocketConnector }) {
   return (
-    <div style={{ width: "99%", height: "100%" }}>
+    <div style={{ width: "100%", height: "100%" }}>
       <div
         style={{
           width: "100%",

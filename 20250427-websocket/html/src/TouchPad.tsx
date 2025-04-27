@@ -41,15 +41,18 @@ function TouchPad({ ws }: { ws: WebSocketConnector }) {
     <div
       style={{
         height: "100%",
-        width: "99%",
+        width: "100%",
       }}
     >
       <div
         style={{
           width: "100%",
           height: "80%",
+          position: "absolute",
+          top: "0px",
           backgroundColor: "black",
           border: "1px solid white",
+          boxSizing: "border-box",
         }}
         onTouchStart={handleStart}
         onTouchMove={handleMove}
@@ -60,6 +63,30 @@ function TouchPad({ ws }: { ws: WebSocketConnector }) {
         }}
         onMouseUp={handleEnd}
         onMouseLeave={handleEnd}
+      ></div>
+      <div
+        style={{
+          width: "50%",
+          height: "20%",
+          position: "absolute",
+          left: "0px",
+          bottom: "0px",
+          backgroundColor: "black",
+          border: "1px solid white",
+          boxSizing: "border-box",
+        }}
+      ></div>
+      <div
+        style={{
+          width: "50%",
+          height: "20%",
+          position: "absolute",
+          right: "0px",
+          bottom: "0px",
+          backgroundColor: "black",
+          border: "1px solid white",
+          boxSizing: "border-box",
+        }}
       ></div>
     </div>
   );
