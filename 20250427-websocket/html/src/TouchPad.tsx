@@ -1,12 +1,13 @@
 "use client";
 import { WebSocketConnector } from "./connector";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 function TouchPad({ ws }: { ws: WebSocketConnector }) {
-  const isTouching = useRef(false);
-  const leftButtonTouching = useRef(false);
-  const middleButtonTouching = useRef(false);
-  const rightButtonTouching = useRef(false);
+  const isMoveSpaceTouching = useRef(false);
+  const isWheelSpaceTouching = useRef(false);
+  const [leftButtonTouching, setLeftButtonTouching] = useState(false);
+  const [middleButtonTouching, setMiddleButtonTouching] = useState(false);
+  const [rightButtonTouching, setRightButtonTouching] = useState(false);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
 
   const getPoint = (e: React.TouchEvent | React.MouseEvent) => {
@@ -18,13 +19,15 @@ function TouchPad({ ws }: { ws: WebSocketConnector }) {
     }
   };
 
-  const handleStart = (e: React.TouchEvent | React.MouseEvent) => {
-    isTouching.current = true;
+  const handleMoveSpaceTouchStart = (
+    e: React.TouchEvent | React.MouseEvent
+  ) => {
+    isMoveSpaceTouching.current = true;
     lastPos.current = getPoint(e);
   };
 
-  const handleMove = (e: React.TouchEvent | React.MouseEvent) => {
-    if (!isTouching.current || !lastPos.current) return;
+  const handleMoveSpaceTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
+    if (!isMoveSpaceTouching.current || !lastPos.current) return;
     const point = getPoint(e);
     const dx = point.x - lastPos.current.x;
     const dy = point.y - lastPos.current.y;
@@ -35,35 +38,61 @@ function TouchPad({ ws }: { ws: WebSocketConnector }) {
     lastPos.current = point;
   };
 
-  const handleEnd = () => {
-    isTouching.current = false;
+  const handleMoveSpaceTouchEnd = () => {
+    isMoveSpaceTouching.current = false;
+    lastPos.current = null;
+  };
+
+  const handleWheelSpaceTouchStart = (
+    e: React.TouchEvent | React.MouseEvent
+  ) => {
+    isWheelSpaceTouching.current = true;
+    lastPos.current = getPoint(e);
+  };
+
+  const handleWheelSpaceTouchMove = (
+    e: React.TouchEvent | React.MouseEvent
+  ) => {
+    if (!isWheelSpaceTouching.current || !lastPos.current) return;
+    const point = getPoint(e);
+    const dx = point.x - lastPos.current.x;
+    const dy = point.y - lastPos.current.y;
+    if (dx !== 0 || dy !== 0) {
+      console.log("移動量", { dx, dy });
+      ws.SendMouseMove(0, 0, dy);
+    }
+    lastPos.current = point;
+  };
+
+  const handleWheelSpaceTouchEnd = () => {
+    isWheelSpaceTouching.current = false;
     lastPos.current = null;
   };
 
   const handleLeftButtonTouchStart = () => {
-    leftButtonTouching.current = true;
+    setLeftButtonTouching(true);
     ws.SetMouseClick("left", true);
   };
   const handleLeftButtonTouchEnd = () => {
-    leftButtonTouching.current = false;
+    setLeftButtonTouching(false);
     ws.SetMouseClick("left", false);
   };
 
   const handleMiddleButtonTouchStart = () => {
-    middleButtonTouching.current = true;
+    setMiddleButtonTouching(true);
     ws.SetMouseClick("middle", true);
   };
   const handleMiddleButtonTouchEnd = () => {
-    middleButtonTouching.current = false;
+    setMiddleButtonTouching(false);
     ws.SetMouseClick("middle", false);
   };
 
   const handleRightButtonTouchStart = () => {
-    rightButtonTouching.current = true;
+    setRightButtonTouching(true);
     ws.SetMouseClick("right", true);
   };
   const handleRightButtonTouchEnd = () => {
-    rightButtonTouching.current = false;
+    setRightButtonTouching(false);
     ws.SetMouseClick("right", false);
   };
 
@@ -76,7 +105,7 @@ function TouchPad({ ws }: { ws: WebSocketConnector }) {
     >
       <div
         style={{
-          width: "100%",
+          width: "85%",
           height: "80%",
           position: "absolute",
           top: "0px",
@@ -84,15 +113,36 @@ function TouchPad({ ws }: { ws: WebSocketConnector }) {
           border: "1px solid white",
           boxSizing: "border-box",
         }}
-        onTouchStart={handleStart}
-        onTouchMove={handleMove}
-        onTouchEnd={handleEnd}
-        onMouseDown={handleStart}
+        onTouchStart={handleMoveSpaceTouchStart}
+        onTouchMove={handleMoveSpaceTouchMove}
+        onTouchEnd={handleMoveSpaceTouchEnd}
+        onMouseDown={handleMoveSpaceTouchStart}
         onMouseMove={(e) => {
-          if (isTouching.current) handleMove(e);
+          if (isMoveSpaceTouching.current) handleMoveSpaceTouchMove(e);
         }}
-        onMouseUp={handleEnd}
-        onMouseLeave={handleEnd}
+        onMouseUp={handleMoveSpaceTouchEnd}
+        onMouseLeave={handleMoveSpaceTouchEnd}
+      ></div>
+      <div
+        style={{
+          width: "15%",
+          height: "80%",
+          position: "absolute",
+          top: "0px",
+          right: "0px",
+          backgroundColor: "black",
+          border: "1px solid white",
+          boxSizing: "border-box",
+        }}
+        onTouchStart={handleWheelSpaceTouchStart}
+        onTouchMove={handleWheelSpaceTouchMove}
+        onTouchEnd={handleWheelSpaceTouchEnd}
+        onMouseDown={handleWheelSpaceTouchStart}
+        onMouseMove={(e) => {
+          if (isWheelSpaceTouching.current) handleWheelSpaceTouchMove(e);
+        }}
+        onMouseUp={handleWheelSpaceTouchEnd}
+        onMouseLeave={handleWheelSpaceTouchEnd}
       ></div>
       <div
         style={{
@@ -101,7 +151,7 @@ function TouchPad({ ws }: { ws: WebSocketConnector }) {
           position: "absolute",
           left: "0px",
           bottom: "0px",
-          backgroundColor: leftButtonTouching.current ? "gray" : "black",
+          backgroundColor: leftButtonTouching ? "gray" : "black",
           border: "1px solid white",
           boxSizing: "border-box",
         }}
@@ -117,7 +167,7 @@ function TouchPad({ ws }: { ws: WebSocketConnector }) {
           position: "absolute",
           right: "40%",
           bottom: "0px",
-          backgroundColor: middleButtonTouching.current ? "gray" : "black",
+          backgroundColor: middleButtonTouching ? "gray" : "black",
           border: "1px solid white",
           boxSizing: "border-box",
         }}
@@ -133,7 +183,7 @@ function TouchPad({ ws }: { ws: WebSocketConnector }) {
           position: "absolute",
           right: "0px",
           bottom: "0px",
-          backgroundColor: rightButtonTouching.current ? "gray" : "black",
+          backgroundColor: rightButtonTouching ? "gray" : "black",
           border: "1px solid white",
           boxSizing: "border-box",
         }}
