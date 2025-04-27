@@ -4,6 +4,9 @@ import { useRef } from "react";
 
 function TouchPad({ ws }: { ws: WebSocketConnector }) {
   const isTouching = useRef(false);
+  const leftButtonTouching = useRef(false);
+  const middleButtonTouching = useRef(false);
+  const rightButtonTouching = useRef(false);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
 
   const getPoint = (e: React.TouchEvent | React.MouseEvent) => {
@@ -37,6 +40,33 @@ function TouchPad({ ws }: { ws: WebSocketConnector }) {
     lastPos.current = null;
   };
 
+  const handleLeftButtonTouchStart = () => {
+    leftButtonTouching.current = true;
+    ws.SetMouseClick("left", true);
+  };
+  const handleLeftButtonTouchEnd = () => {
+    leftButtonTouching.current = false;
+    ws.SetMouseClick("left", false);
+  };
+
+  const handleMiddleButtonTouchStart = () => {
+    middleButtonTouching.current = true;
+    ws.SetMouseClick("middle", true);
+  };
+  const handleMiddleButtonTouchEnd = () => {
+    middleButtonTouching.current = false;
+    ws.SetMouseClick("middle", false);
+  };
+
+  const handleRightButtonTouchStart = () => {
+    rightButtonTouching.current = true;
+    ws.SetMouseClick("right", true);
+  };
+  const handleRightButtonTouchEnd = () => {
+    rightButtonTouching.current = false;
+    ws.SetMouseClick("right", false);
+  };
+
   return (
     <div
       style={{
@@ -66,27 +96,51 @@ function TouchPad({ ws }: { ws: WebSocketConnector }) {
       ></div>
       <div
         style={{
-          width: "50%",
+          width: "40%",
           height: "20%",
           position: "absolute",
           left: "0px",
           bottom: "0px",
-          backgroundColor: "black",
+          backgroundColor: leftButtonTouching.current ? "gray" : "black",
           border: "1px solid white",
           boxSizing: "border-box",
         }}
+        onTouchStart={handleLeftButtonTouchStart}
+        onTouchEnd={handleLeftButtonTouchEnd}
+        onMouseDown={handleLeftButtonTouchStart}
+        onMouseUp={handleLeftButtonTouchEnd}
       ></div>
       <div
         style={{
-          width: "50%",
+          width: "20%",
+          height: "20%",
+          position: "absolute",
+          right: "40%",
+          bottom: "0px",
+          backgroundColor: middleButtonTouching.current ? "gray" : "black",
+          border: "1px solid white",
+          boxSizing: "border-box",
+        }}
+        onTouchStart={handleMiddleButtonTouchStart}
+        onTouchEnd={handleMiddleButtonTouchEnd}
+        onMouseDown={handleMiddleButtonTouchStart}
+        onMouseUp={handleMiddleButtonTouchEnd}
+      ></div>
+      <div
+        style={{
+          width: "40%",
           height: "20%",
           position: "absolute",
           right: "0px",
           bottom: "0px",
-          backgroundColor: "black",
+          backgroundColor: rightButtonTouching.current ? "gray" : "black",
           border: "1px solid white",
           boxSizing: "border-box",
         }}
+        onTouchStart={handleRightButtonTouchStart}
+        onTouchEnd={handleRightButtonTouchEnd}
+        onMouseDown={handleRightButtonTouchStart}
+        onMouseUp={handleRightButtonTouchEnd}
       ></div>
     </div>
   );

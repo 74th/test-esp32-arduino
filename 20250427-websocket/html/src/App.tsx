@@ -12,7 +12,6 @@ function App() {
     if (!wsRef.current) {
       wsRef.current = new WebSocketConnector("ws://192.168.1.109:81");
       wsRef.current.onopen = () => {
-        console.log("@@1");
         setConnected(true);
       };
       wsRef.current.onclose = () => {

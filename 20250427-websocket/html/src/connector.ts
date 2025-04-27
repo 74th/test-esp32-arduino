@@ -1,4 +1,5 @@
 import { CH9329_KEYCODE } from "./ch9329_keycode";
+import { ModifierKeyName, MouseButtonName } from "./entities";
 
 function byteToHexString(byteArray: Uint8Array): string {
     return Array.from(byteArray)
@@ -97,7 +98,7 @@ export class WebSocketConnector {
         this.sendMouseCode(fdx, fdy, wy, this.left_click, this.right_click, this.middle_click);
     }
 
-    SetMouseClick(button: "left" | "right" | "middle", state: boolean) {
+    SetMouseClick(button: MouseButtonName, state: boolean) {
         if (button === "left") {
             this.left_click = state;
         } else if (button === "right") {
@@ -139,7 +140,7 @@ export class WebSocketConnector {
         this.ws.send(bytes);
     }
 
-    SetModifierKey(key: "shift" | "ctrl" | "alt" | "win", state: boolean) {
+    SetModifierKey(key: ModifierKeyName, state: boolean) {
         if (key == "shift") {
             this.shift = state;
         } else if (key == "ctrl") {
@@ -207,7 +208,6 @@ export class WebSocketConnector {
     }
 
     close() {
-        console.log("@@2");
         if (this.ws) {
             this.ws.close();
         }
