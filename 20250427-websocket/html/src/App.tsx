@@ -1,5 +1,5 @@
 "use client"
-import { WebSocketConnector } from '../conn/connector';
+import { WebSocketConnector } from './connector';
 import { useRef, useEffect, useState } from 'react';
 
 function TouchPad({ ws }: { ws: WebSocketConnector}) {
@@ -51,7 +51,7 @@ function TouchPad({ ws }: { ws: WebSocketConnector}) {
   );
 }
 
-export default function Home() {
+function App() {
   const wsRef = useRef<WebSocketConnector | null>(null);
   const [connected, setConnected] = useState(false);
 
@@ -87,3 +87,5 @@ export default function Home() {
     </div>
   );
 }
+
+export default App
