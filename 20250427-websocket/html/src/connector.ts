@@ -26,7 +26,7 @@ export class WebSocketConnector {
     private mouseDy: number = 0;
     private mouseWy: number = 0;
 
-    private mouseMultiplier: number = 10.0;
+    private mouseMultiplier: number = 5.0;
     private wheelMultiplier: number = 0.30;
 
 

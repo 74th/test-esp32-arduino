@@ -23,7 +23,7 @@ function App() {
   }, []);
 
   return (
-    <div style={{ width: "99vw", height: "99vh" }}>
+    <div style={{ width: "99vw", height: "99vh", color: "white" }}>
       <div
         style={{
           width: "100%",
