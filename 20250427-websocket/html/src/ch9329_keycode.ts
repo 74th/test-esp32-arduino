@@ -80,5 +80,7 @@ export const CH9329_KEYCODE: { [index: string]: number } = {
     "NUM_LOCK": 0x53,
     "POWER": 0x81,
     "SLEEP": 0x82,
-    "WAKE_UP": 0x83
+    "WAKE_UP": 0x83,
+    "KANJI": 0x90,
+    "EISU": 0x91,
 }

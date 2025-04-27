@@ -168,7 +168,7 @@ export class WebSocketConnector {
         }
     }
 
-    SendKey(key: string) {
+    SendKey(key: string, shift: boolean = false, ctrl: boolean = false, alt: boolean = false, win: boolean = false) {
         if (!(key in CH9329_KEYCODE)) {
             console.warn("unknown key", key);
             return;
@@ -176,7 +176,7 @@ export class WebSocketConnector {
 
         const code = [CH9329_KEYCODE[key]];
 
-        const ok = this.sendKey(code, this.ctrl, this.shift, this.alt, this.win);
+        const ok = this.sendKey(code, this.ctrl || ctrl, this.shift || shift, this.alt || alt, this.win || win);
         if (ok) {
             setTimeout(() => {
                 this.sendKey([]);
