@@ -39,7 +39,7 @@ function TouchPad({ ws }: { ws: WebSocketConnector}) {
 
   return (
     <div
-      style={{ width:"100%", height:"100%", backgroundColor: 'black', border: '1px solid white' }}
+      style={{ width:"99%", height:"99%", backgroundColor: 'black', border: '1px solid white' }}
       onTouchStart={handleStart}
       onTouchMove={handleMove}
       onTouchEnd={handleEnd}
