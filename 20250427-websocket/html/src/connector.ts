@@ -21,6 +21,10 @@ export class WebSocketConnector {
     private alt: boolean = false;
     private win: boolean = false;
 
+    private mouseDx: number = 0;
+    private mouseDy: number = 0;
+    private mouseMultiplier: number = 20;
+
     constructor(url: string) {
         this.url = url;
     }
@@ -54,13 +58,43 @@ export class WebSocketConnector {
     }
 
     SendMouseMove(dx: number, dy: number, wy: number) {
+        this.mouseDx += dx * this.mouseMultiplier;
+        this.mouseDy += dy * this.mouseMultiplier;
+
+        if (Math.abs(this.mouseDx) < 1 && Math.abs(this.mouseDy) < 1 && Math.abs(wy) == 0) {
+            return;
+        }
+
         console.log("start send");
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
             this.connect();
             return;
         }
 
-        this.sendMouseCode(dx, dy, wy, this.left_click, this.right_click, this.middle_click);
+        let fdx = 0;
+        let fdy = 0;
+        if (this.mouseDx < -128) {
+            fdx = -128;
+        } else if (this.mouseDx > 127) {
+            fdx = 127;
+        } else if (this.mouseDx < 0) {
+            fdx = Math.ceil(this.mouseDx);
+        } else {
+            fdx = Math.floor(this.mouseDx);
+        }
+        if (this.mouseDy < -128) {
+            fdy = -128;
+        } else if (this.mouseDy > 127) {
+            fdy = 127;
+        } else if (this.mouseDy < 0) {
+            fdy = Math.ceil(this.mouseDy);
+        } else {
+            fdy = Math.floor(this.mouseDy);
+        }
+        this.mouseDx -= fdx;
+        this.mouseDy -= fdy;
+
+        this.sendMouseCode(fdx, fdy, wy, this.left_click, this.right_click, this.middle_click);
     }
 
     SetMouseClick(button: "left" | "right" | "middle", state: boolean) {
