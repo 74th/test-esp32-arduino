@@ -25,17 +25,17 @@ Adafruit_NeoPixel pixels(1, LED_PIN, NEO_GRB + NEO_KHZ800);
 void hexdump(const void *mem, uint32_t len, uint8_t cols = 16)
 {
   const uint8_t *src = (const uint8_t *)mem;
-  Serial0.printf("\n[HEXDUMP] Address: 0x%08X len: 0x%X (%d)", (ptrdiff_t)src, len, len);
+  Serial.printf("\n[HEXDUMP] Address: 0x%08X len: 0x%X (%d)", (ptrdiff_t)src, len, len);
   for (uint32_t i = 0; i < len; i++)
   {
     if (i % cols == 0)
     {
-      Serial0.printf("\n[0x%08X] 0x%08X: ", (ptrdiff_t)src, i);
+      Serial.printf("\n[0x%08X] 0x%08X: ", (ptrdiff_t)src, i);
     }
-    Serial0.printf("%02X ", *src);
+    Serial.printf("%02X ", *src);
     src++;
   }
-  Serial0.printf("\n");
+  Serial.printf("\n");
 }
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
@@ -44,14 +44,14 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
   switch (type)
   {
   case WStype_DISCONNECTED:
-    Serial0.printf("[%u] Disconnected!\n", num);
+    Serial.printf("[%u] Disconnected!\n", num);
     pixels.setPixelColor(0, LED_COLOR_NORMAL);
     pixels.show();
     break;
   case WStype_CONNECTED:
   {
     IPAddress ip = webSocket.remoteIP(num);
-    Serial0.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
+    Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
 
     webSocket.sendTXT(num, "Connected");
     pixels.setPixelColor(0, LED_COLOR_CONNECT);
@@ -92,13 +92,13 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
 void setup()
 {
 #ifdef ENABLE_DEBUG_PRINT
-  Serial0.begin(115200);
+  Serial.begin(115200);
 
-  Serial0.setDebugOutput(true);
+  Serial.setDebugOutput(true);
 
-  Serial0.println();
-  Serial0.println();
-  Serial0.println();
+  Serial.println();
+  Serial.println();
+  Serial.println();
 #endif
 
   pixels.begin();
@@ -119,9 +119,9 @@ void setup()
   }
 
 #ifdef ENABLE_DEBUG_PRINT
-  Serial0.print("Connected! IP address: ");
-  Serial0.println(WiFi.localIP());
-  Serial0.flush();
+  Serial.print("Connected! IP address: ");
+  Serial.println(WiFi.localIP());
+  Serial.flush();
 #endif
 
   webSocket.begin();

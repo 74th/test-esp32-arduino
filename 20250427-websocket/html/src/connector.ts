@@ -61,6 +61,7 @@ export class WebSocketConnector {
     }
 
     close() {
+        console.log("@@2");
         if (this.ws) {
             this.ws.close();
         }
