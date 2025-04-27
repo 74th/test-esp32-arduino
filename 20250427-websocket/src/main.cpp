@@ -65,7 +65,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
 
   case WStype_BIN:
 #ifdef ENABLE_DEBUG_PRINT
-    Serial0.printf("[%u] get binary length: %u\r\n", num, length);
+    Serial.printf("[%u] get binary length: %u\r\n", num, length);
 #endif
 
     if (length == 0)

@@ -23,7 +23,7 @@ export class WebSocketConnector {
 
     private mouseDx: number = 0;
     private mouseDy: number = 0;
-    private mouseMultiplier: number = 20;
+    private mouseMultiplier: number = 10;
 
     constructor(url: string) {
         this.url = url;
@@ -126,24 +126,9 @@ export class WebSocketConnector {
         if (middle_click) {
             bytes[6] |= 0x04;
         }
-        if (dx > 0) {
-            bytes[7] = 1;
-        }
-        if (dx < 0) {
-            bytes[7] = -1;
-        }
-        if (dy > 0) {
-            bytes[8] = 1;
-        }
-        if (dy < 0) {
-            bytes[8] = -1;
-        }
-        if (wy < 0) {
-            bytes[9] = -1;
-        }
-        if (wy > 0) {
-            bytes[9] = 1;
-        }
+        bytes[7] = dx;
+        bytes[8] = dy;
+        bytes[9] = wy;
 
         // checksum
         for (let i = 0; i < 10; i++) {
