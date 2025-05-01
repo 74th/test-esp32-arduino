@@ -178,6 +178,31 @@ export default function App() {
         <span>{ip ?? "-"}</span>
       </div>
 
+      <div className="w-full max-w-2xl flex space-x-2 items-center">
+        <input
+          className="flex-grow border rounded-lg p-2 bg-gray-800 text-white placeholder-gray-500 focus:outline-none"
+          type="text"
+          placeholder="SSID"
+          value={ssid}
+          onChange={(e) => setSsid(e.target.value)}
+          disabled={!connected}
+        />
+        <input
+          className="flex-grow border rounded-lg p-2 bg-gray-800 text-white placeholder-gray-500 focus:outline-none"
+          type="password"
+          placeholder="Password"
+          value={wifiPass}
+          onChange={(e) => setWifiPass(e.target.value)}
+          disabled={!connected}
+        />
+        <button
+          onClick={setWifiCreds}
+          disabled={!connected || !ssid}
+          className="px-4 py-2 rounded-lg shadow text-white bg-orange-600 disabled:opacity-50"
+        >
+          Set WiFi
+        </button>
+      </div>
       <div
         ref={logRef}
         className="w-full max-w-2xl h-64 overflow-y-auto rounded-lg bg-gray-900 text-green-400 font-mono text-sm p-3 shadow-inner"
@@ -210,32 +235,6 @@ export default function App() {
           className="px-4 py-2 rounded-lg shadow text-white bg-green-600 disabled:opacity-50"
         >
           Send
-        </button>
-      </div>
-
-      <div className="w-full max-w-2xl flex space-x-2 items-center">
-        <input
-          className="flex-grow border rounded-lg p-2 bg-gray-800 text-white placeholder-gray-500 focus:outline-none"
-          type="text"
-          placeholder="SSID"
-          value={ssid}
-          onChange={(e) => setSsid(e.target.value)}
-          disabled={!connected}
-        />
-        <input
-          className="flex-grow border rounded-lg p-2 bg-gray-800 text-white placeholder-gray-500 focus:outline-none"
-          type="password"
-          placeholder="Password"
-          value={wifiPass}
-          onChange={(e) => setWifiPass(e.target.value)}
-          disabled={!connected}
-        />
-        <button
-          onClick={setWifiCreds}
-          disabled={!connected || !ssid}
-          className="px-4 py-2 rounded-lg shadow text-white bg-orange-600 disabled:opacity-50"
-        >
-          Set WiFi
         </button>
       </div>
     </div>
