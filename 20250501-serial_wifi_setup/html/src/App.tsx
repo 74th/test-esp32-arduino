@@ -19,6 +19,7 @@ export default function App() {
   const [input, setInput] = useState("");
   const [log, setLog] = useState<string[]>([]);
   const [ip, setIp] = useState<string | null>(null); // IPアドレス用state追加
+  const [macAddress, setMacAddress] = useState<string | null>(null); // MACアドレス用state追加
   const [ssid, setSsid] = useState(""); // SSID入力用state
   const [wifiPass, setWifiPass] = useState(""); // パスワード入力用state
   const logRef = useRef<HTMLDivElement>(null);
@@ -67,11 +68,17 @@ export default function App() {
                       obj &&
                       obj.jsonrpc === "2.0" &&
                       obj.id === 1 &&
-                      obj.result &&
-                      obj.result.ip
+                      obj.result
                     ) {
-                      setIp(obj.result.ip);
-                      appendLog(`[ip] ${obj.result.ip}`);
+                      if (obj.result.ip !== undefined) {
+                        setIp(obj.result.ip);
+                        appendLog(`[ip] ${obj.result.ip}`);
+                      } else if (obj.result.mac_address !== undefined) {
+                        setMacAddress(obj.result.mac_address);
+                        appendLog(`[mac] ${obj.result.mac_address}`);
+                      } else {
+                        appendLog(line);
+                      }
                     } else {
                       appendLog(line);
                     }
@@ -135,6 +142,19 @@ export default function App() {
     }
   };
 
+  // MACアドレス取得リクエスト
+  const getMacAddress = async () => {
+    if (!writer) return;
+    try {
+      const req = { jsonrpc: "2.0", method: "get_mac_address", id: 1 };
+      const data = new TextEncoder().encode(JSON.stringify(req) + "\r\n");
+      await writer.write(data);
+      appendLog("> get_mac_address request sent");
+    } catch (err) {
+      appendLog(`[error] ${err}`);
+    }
+  };
+
   // WiFi設定リクエスト
   const setWifiCreds = async () => {
     if (!writer) return;
@@ -156,7 +176,7 @@ export default function App() {
   // --- ui -----------------------------------------------------------------
   return (
     <div className="flex flex-col items-center p-6 space-y-4 font-sans">
-      <h1 className="text-3xl font-bold">Web Serial Terminal</h1>
+      <h1 className="text-3xl font-bold">Web Serial Wifi Setup</h1>
 
       <div className="space-x-2">
         <button
@@ -172,10 +192,21 @@ export default function App() {
         >
           Get IP
         </button>
+        <button
+          onClick={getMacAddress}
+          disabled={!connected}
+          className="px-4 py-2 rounded-lg shadow text-white bg-purple-600 disabled:opacity-50"
+        >
+          Get MAC Address
+        </button>
       </div>
       <div className="w-full max-w-2xl text-left text-base text-black bg-gray-100 rounded p-2">
         <span className="font-bold">IP Address: </span>
         <span>{ip ?? "-"}</span>
+      </div>
+      <div className="w-full max-w-2xl text-left text-base text-black bg-gray-100 rounded p-2">
+        <span className="font-bold">MAC Address: </span>
+        <span>{macAddress ?? "-"}</span>
       </div>
 
       <div className="w-full max-w-2xl flex space-x-2 items-center">
