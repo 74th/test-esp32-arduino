@@ -19,6 +19,8 @@ export default function App() {
   const [input, setInput] = useState("");
   const [log, setLog] = useState<string[]>([]);
   const [ip, setIp] = useState<string | null>(null); // IPアドレス用state追加
+  const [ssid, setSsid] = useState(""); // SSID入力用state
+  const [wifiPass, setWifiPass] = useState(""); // パスワード入力用state
   const logRef = useRef<HTMLDivElement>(null);
 
   // --- helpers ------------------------------------------------------------
@@ -133,6 +135,24 @@ export default function App() {
     }
   };
 
+  // WiFi設定リクエスト
+  const setWifiCreds = async () => {
+    if (!writer) return;
+    try {
+      const req = {
+        jsonrpc: "2.0",
+        method: "set_wifi_creds",
+        params: { ssid, pass: wifiPass },
+        id: 1,
+      };
+      const data = new TextEncoder().encode(JSON.stringify(req) + "\r\n");
+      await writer.write(data);
+      appendLog("> set_wifi_creds request sent");
+    } catch (err) {
+      appendLog(`[error] ${err}`);
+    }
+  };
+
   // --- ui -----------------------------------------------------------------
   return (
     <div className="flex flex-col items-center p-6 space-y-4 font-sans">
@@ -190,6 +210,32 @@ export default function App() {
           className="px-4 py-2 rounded-lg shadow text-white bg-green-600 disabled:opacity-50"
         >
           Send
+        </button>
+      </div>
+
+      <div className="w-full max-w-2xl flex space-x-2 items-center">
+        <input
+          className="flex-grow border rounded-lg p-2 bg-gray-800 text-white placeholder-gray-500 focus:outline-none"
+          type="text"
+          placeholder="SSID"
+          value={ssid}
+          onChange={(e) => setSsid(e.target.value)}
+          disabled={!connected}
+        />
+        <input
+          className="flex-grow border rounded-lg p-2 bg-gray-800 text-white placeholder-gray-500 focus:outline-none"
+          type="password"
+          placeholder="Password"
+          value={wifiPass}
+          onChange={(e) => setWifiPass(e.target.value)}
+          disabled={!connected}
+        />
+        <button
+          onClick={setWifiCreds}
+          disabled={!connected || !ssid}
+          className="px-4 py-2 rounded-lg shadow text-white bg-orange-600 disabled:opacity-50"
+        >
+          Set WiFi
         </button>
       </div>
     </div>
