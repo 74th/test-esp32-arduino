@@ -5,9 +5,21 @@
 #include <WiFiClientSecure.h>
 
 #include <WebSocketsServer.h>
+#include <WebServer.h>
+#include <mdns.h>
 #include <Adafruit_NeoPixel.h>
 
 #include <wifi_settings.hpp>
+
+// data/index.html
+extern const uint8_t _binary_data_index_html_gz_start[] asm("_binary_data_index_html_gz_start");
+extern const uint8_t _binary_data_index_html_gz_end[] asm("_binary_data_index_html_gz_end");
+// data/assets/index.js.gz
+extern const uint8_t _binary_data_assets_index_js_gz_start[] asm("_binary_data_assets_index_js_gz_start");
+extern const uint8_t _binary_data_assets_index_js_gz_end[] asm("_binary_data_assets_index_js_gz_end");
+// data/assets/style.css.gz
+extern const uint8_t _binary_data_assets_style_css_gz_start[] asm("_binary_data_assets_style_css_gz_start");
+extern const uint8_t _binary_data_assets_style_css_gz_end[] asm("_binary_data_assets_style_css_gz_end");
 
 #define CH9329_TX_PIN GPIO_NUM_7
 #define CH9329_RX_PIN GPIO_NUM_8
@@ -20,6 +32,7 @@
 
 WiFiMulti wifiMulti;
 WebSocketsServer webSocket = WebSocketsServer(81);
+WebServer server(80);
 Adafruit_NeoPixel pixels(1, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 void hexdump(const void *mem, uint32_t len, uint8_t cols = 16)
@@ -93,6 +106,15 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
   }
 }
 
+static void sendStatic(const char *mime,
+                       const uint8_t *gzStart, const uint8_t *gzEnd)
+{
+  server.sendHeader("Content-Encoding", "gzip");
+  server.send_P(200, mime,
+                reinterpret_cast<const char *>(gzStart),
+                gzEnd - gzStart);
+}
+
 void setup()
 {
 #ifdef ENABLE_DEBUG_PRINT
@@ -131,6 +153,20 @@ void setup()
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
 
+  server.on("/", HTTP_GET, []()
+            { sendStatic("text/html",
+                         _binary_data_index_html_gz_start,
+                         _binary_data_index_html_gz_end); });
+  server.on("/assets/index.js", HTTP_GET, []()
+            { sendStatic("application/javascript",
+                         _binary_data_assets_index_js_gz_start,
+                         _binary_data_assets_index_js_gz_end); });
+  server.on("/assets/style.css", HTTP_GET, []()
+            { sendStatic("text/css",
+                         _binary_data_assets_style_css_gz_start,
+                         _binary_data_assets_style_css_gz_end); });
+  server.begin();
+
   pixels.setPixelColor(0, LED_COLOR_NORMAL);
   pixels.show();
 }
@@ -138,4 +174,5 @@ void setup()
 void loop()
 {
   webSocket.loop();
+  server.handleClient();
 }
