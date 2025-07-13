@@ -9,8 +9,17 @@ function App() {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
+    // WebSocket接続先URLを決定
+    let wsUrl = "";
+    const params = new URLSearchParams(window.location.search);
+    const target = params.get("target");
+    if (target) {
+      wsUrl = `ws://${target}`;
+    } else {
+      wsUrl = `ws://${window.location.hostname}:81`;
+    }
     if (!wsRef.current) {
-      wsRef.current = new WebSocketConnector("ws://192.168.1.109:81");
+      wsRef.current = new WebSocketConnector(wsUrl);
       wsRef.current.onopen = () => {
         setConnected(true);
       };

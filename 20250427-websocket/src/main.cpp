@@ -21,8 +21,8 @@ extern const uint8_t _binary_data_assets_index_js_gz_end[] asm("_binary_data_ass
 extern const uint8_t _binary_data_assets_style_css_gz_start[] asm("_binary_data_assets_style_css_gz_start");
 extern const uint8_t _binary_data_assets_style_css_gz_end[] asm("_binary_data_assets_style_css_gz_end");
 
-#define CH9329_TX_PIN GPIO_NUM_7
-#define CH9329_RX_PIN GPIO_NUM_8
+#define CH9329_TX_PIN GPIO_NUM_6
+#define CH9329_RX_PIN GPIO_NUM_7
 #define LED_PIN GPIO_NUM_2
 
 #define LED_COLOR_SETUP Adafruit_NeoPixel::Color(0, 32, 0)
@@ -109,6 +109,9 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
 static void sendStatic(const char *mime,
                        const uint8_t *gzStart, const uint8_t *gzEnd)
 {
+  server.sendHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+  server.sendHeader("Pragma", "no-cache");
+  server.sendHeader("Expires", "0");
   server.sendHeader("Content-Encoding", "gzip");
   server.send_P(200, mime,
                 reinterpret_cast<const char *>(gzStart),
