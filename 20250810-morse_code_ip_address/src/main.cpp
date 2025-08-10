@@ -1,10 +1,12 @@
-#include <Arduino.h>
+#include <M5Unified.h>
 #include <ESP32SerialWiFiSetup.h>
 
 Esp32SerialWifiSetup::WiFiSetupManager wifiSetup;
 
 void setup()
 {
+  M5.begin();
+
   // Initialize the WiFi setup manager
   wifiSetup.begin();
 
@@ -28,6 +30,13 @@ void setup()
 
 void loop()
 {
+  M5.delay(1);
+  M5.update();
+  if (M5.BtnA.wasSingleClicked())
+  {
+    Serial.println("Button A clicked!");
+  }
+
   // Handle JSON-RPC commands from serial port
   wifiSetup.handleSerialCommands();
 
