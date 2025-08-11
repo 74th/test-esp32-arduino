@@ -47,11 +47,13 @@ const char *morse_digits[] = {
     "----."  // 9
 };
 
+const char *morse_period = ".-.-.-";
+
 // モールス信号のタイミング設定
 const unsigned long DOT_DURATION = 250;               // ドット（短点）の長さ
 const unsigned long DASH_DURATION = DOT_DURATION * 3; // ダッシュ（長点）の長さ
 const unsigned long SIGNAL_GAP = DOT_DURATION;        // 信号間の間隔
-const unsigned long DIGIT_GAP = DASH_DURATION;        // 数字間の間隔
+const unsigned long DIGIT_GAP = DASH_DURATION;        // 文字間の間隔（数字/ドット）
 
 // モールス信号の状態管理
 enum MorseState
@@ -72,28 +74,35 @@ static bool signal_started = false; // 各信号の開始フラグ
 uint8_t local_ip = {0};
 uint8_t ip_text[32] = {0};
 uint8_t ip_text_len = 0;
-void morse_code_ip_address_init(unsigned long now_ms)
-{
-  uint32_t ip_u32 = uint32_t(WiFi.localIP());
-  local_ip = (ip_u32 >> 24) & 0xFF;
 
-  if (local_ip >= 100)
+// 与えられた文字のモールスパターンを取得（数字と'.'に対応）
+static inline const char *get_morse_pattern_for_char(char ch)
+{
+  if (ch >= '0' && ch <= '9')
   {
-    ip_text[0] = '1';
-    ip_text[1] = '0' + (local_ip / 10) % 10;
-    ip_text[2] = '0' + local_ip % 10;
-    ip_text_len = 3;
+    return morse_digits[ch - '0'];
   }
-  else if (local_ip >= 10)
+  if (ch == '.')
   {
-    ip_text[0] = '0' + (local_ip / 10) % 10;
-    ip_text[1] = '0' + local_ip % 10;
-    ip_text_len = 2;
+    return morse_period;
+  }
+  return nullptr;
+}
+
+void morse_code_ip_address_init(unsigned long now_ms, bool full_ip)
+{
+  // IP文字列の作成
+  IPAddress ip = WiFi.localIP();
+  if (full_ip)
+  {
+    // 例: 192.168.1.117
+    ip_text_len = (uint8_t)snprintf((char *)ip_text, sizeof(ip_text), "%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
   }
   else
   {
-    ip_text[0] = '0' + local_ip;
-    ip_text_len = 1;
+    // 最後の1バイトのみ
+    local_ip = ip[3];
+    ip_text_len = (uint8_t)snprintf((char *)ip_text, sizeof(ip_text), "%u", (unsigned)local_ip);
   }
 
   // モールス信号の開始
@@ -103,21 +112,32 @@ void morse_code_ip_address_init(unsigned long now_ms)
   current_signal_index = 0;
   morse_start_time = now_ms;
 
-  Serial.print("[MORSE] モールス信号開始 - IPアドレス最後のバイト: ");
-  Serial.print(local_ip);
-  Serial.print(" (文字列: ");
-  for (int i = 0; i < ip_text_len; i++)
+  if (full_ip)
   {
-    Serial.print((char)ip_text[i]);
+    Serial.print("[MORSE] モールス信号開始 - IPアドレス全体: ");
+    Serial.println((char *)ip_text);
   }
-  Serial.println(")");
+  else
+  {
+    Serial.print("[MORSE] モールス信号開始 - IPアドレス最後のバイト: ");
+    Serial.print((char *)ip_text);
+    Serial.println();
+  }
 
   // モールス信号パターンの詳細表示
   Serial.println("[MORSE] 送信予定パターン:");
   for (int i = 0; i < ip_text_len; i++)
   {
-    char digit = ip_text[i];
-    Serial.printf("  数字 '%c' -> %s\r\n", digit, morse_digits[digit - '0']);
+    char ch = (char)ip_text[i];
+    const char *pattern = get_morse_pattern_for_char(ch);
+    if (pattern)
+    {
+      Serial.printf("  文字 '%c' -> %s\r\n", ch, pattern);
+    }
+    else
+    {
+      Serial.printf("  文字 '%c' -> (未対応・スキップ)\r\n", ch);
+    }
   }
 }
 
@@ -145,21 +165,21 @@ void morse_code_ip_address_loop(unsigned long now_ms)
   switch (morse_state)
   {
   case MORSE_IDLE:
-    // 新しい数字の開始
+    // 新しい文字の開始
     if (current_digit_index < ip_text_len)
     {
-      char digit = ip_text[current_digit_index];
-      if (digit >= '0' && digit <= '9')
+      char ch = (char)ip_text[current_digit_index];
+      const char *pattern = get_morse_pattern_for_char(ch);
+      if (pattern && pattern[0] != '\0')
       {
         current_signal_index = 0;
         morse_state = MORSE_ON;
         morse_start_time = now_ms;
-        signal_started = false; // 新しい数字の開始時にリセット
-        Serial.printf("[MORSE] 数字 '%c' の送信開始 (パターン: %s)\r\n",
-                      digit, morse_digits[digit - '0']);
+        signal_started = false; // 新しい文字の開始時にリセット
+        Serial.printf("[MORSE] 文字 '%c' の送信開始 (パターン: %s)\r\n", ch, pattern);
 
         // 最初の信号を即座に開始
-        char signal = morse_digits[digit - '0'][0];
+        char signal = pattern[0];
         led_on();
         Serial.printf("[MORSE] 信号 '%c' (%s) 点灯開始 (%dms)\r\n",
                       signal,
@@ -167,21 +187,35 @@ void morse_code_ip_address_loop(unsigned long now_ms)
                       (int)((signal == '.') ? DOT_DURATION : DASH_DURATION));
         signal_started = true;
       }
+      else
+      {
+        // 対応外文字はスキップ
+        current_digit_index++;
+        morse_state = MORSE_IDLE;
+        morse_start_time = now_ms;
+      }
     }
     else
     {
-      // 全ての数字を送信完了、停止
+      // 全ての文字を送信完了、停止
       morse_active = false;
       led_off();
-      Serial.printf("[MORSE] 全数字送信完了、モールス信号終了\r\n");
+      Serial.printf("[MORSE] 全文字送信完了、モールス信号終了\r\n");
     }
     break;
 
   case MORSE_ON:
   {
-    char digit = ip_text[current_digit_index];
-    int digit_num = digit - '0';
-    const char *pattern = morse_digits[digit_num];
+    char ch = (char)ip_text[current_digit_index];
+    const char *pattern = get_morse_pattern_for_char(ch);
+    if (!pattern)
+    {
+      // 対応外文字はスキップ
+      current_digit_index++;
+      morse_state = MORSE_IDLE;
+      morse_start_time = now_ms;
+      break;
+    }
 
     if (current_signal_index < strlen(pattern))
     {
@@ -207,13 +241,19 @@ void morse_code_ip_address_loop(unsigned long now_ms)
   case MORSE_SIGNAL_GAP:
     if (elapsed >= SIGNAL_GAP)
     {
-      char digit = ip_text[current_digit_index];
-      int digit_num = digit - '0';
-      const char *pattern = morse_digits[digit_num];
+      char ch = (char)ip_text[current_digit_index];
+      const char *pattern = get_morse_pattern_for_char(ch);
 
-      if (current_signal_index < strlen(pattern))
+      if (!pattern)
       {
-        // 同じ数字の次の信号
+        // 対応外文字
+        current_digit_index++;
+        morse_state = MORSE_DIGIT_GAP;
+        morse_start_time = now_ms;
+      }
+      else if (current_signal_index < strlen(pattern))
+      {
+        // 同じ文字の次の信号
         morse_state = MORSE_ON;
         morse_start_time = now_ms;
         signal_started = false; // 次の信号開始前にリセット
@@ -229,12 +269,12 @@ void morse_code_ip_address_loop(unsigned long now_ms)
       }
       else
       {
-        // この数字の送信完了、次の数字へ
+        // この文字の送信完了、次の文字へ
         current_digit_index++;
         morse_state = MORSE_DIGIT_GAP;
         morse_start_time = now_ms;
-        Serial.printf("[MORSE] 数字 '%c' 送信完了、数字間隔 (%dms)\r\n",
-                      digit, (int)DIGIT_GAP);
+        Serial.printf("[MORSE] 文字 '%c' 送信完了、文字間隔 (%dms)\r\n",
+                      ch, (int)DIGIT_GAP);
       }
     }
     break;
@@ -257,7 +297,7 @@ void loop()
   M5.update();
   unsigned long now = millis();
 
-  if (M5.BtnA.wasReleased())
+  if (M5.BtnA.wasClicked())
   {
     if (morse_active)
     {
@@ -268,10 +308,16 @@ void loop()
     }
     else
     {
-      // モールス信号開始
-      Serial.println("[MORSE] ボタン押下 - モールス信号開始準備");
-      morse_code_ip_address_init(now);
+      // モールス信号開始（最後1バイト）
+      Serial.println("[MORSE] ボタン押下 - モールス信号（最後1バイト）開始準備");
+      morse_code_ip_address_init(now, false);
     }
+  }
+  else if (M5.BtnA.wasReleasedAfterHold())
+  {
+    // モールス信号開始（全4バイト）
+    Serial.println("[MORSE] ボタン長押し - モールス信号（全4バイト）開始準備");
+    morse_code_ip_address_init(now, true);
   }
   morse_code_ip_address_loop(now);
 
