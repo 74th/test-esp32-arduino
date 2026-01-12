@@ -3,3 +3,5 @@
 .vscode/c_cpp_properties.json
 .vscode/ipch
 src/config.h
+server/recordings
+._.DS_Store
