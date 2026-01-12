@@ -13,9 +13,12 @@ BASE_DIR = Path(__file__).resolve().parent
 RECORDINGS_DIR = BASE_DIR / "recordings"
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 
-WS_HEADER_FMT = "<4sIHH"  # kind, sample_rate, channels, reserved
+WS_HEADER_FMT = "<4sBBHIHH"  # kind, msg_type, reserved, seq, sample_rate, channels, payload_bytes
 WS_HEADER_SIZE = struct.calcsize(WS_HEADER_FMT)
 WS_KIND_PCM1 = b"PCM1"
+WS_MSG_START = 1
+WS_MSG_DATA = 2
+WS_MSG_END = 3
 
 
 def _ulaw_byte_to_linear(sample: int) -> int:
@@ -48,6 +51,10 @@ async def health() -> dict[str, str]:
 @app.websocket("/ws/audio")
 async def websocket_audio(ws: WebSocket):
     await ws.accept()
+    pcm_buffer = bytearray()
+    current_sample_rate: int | None = None
+    current_channels: int | None = None
+    streaming = False
     try:
         while True:
             message = await ws.receive_bytes()
@@ -55,7 +62,9 @@ async def websocket_audio(ws: WebSocket):
                 await ws.close(code=1003, reason="header too short")
                 return
 
-            kind, sample_rate, channels, _ = struct.unpack(WS_HEADER_FMT, message[:WS_HEADER_SIZE])
+            kind, msg_type, _reserved, _seq, sample_rate, channels, payload_bytes = struct.unpack(
+                WS_HEADER_FMT, message[:WS_HEADER_SIZE]
+            )
             if kind != WS_KIND_PCM1:
                 await ws.close(code=1003, reason="unsupported kind")
                 return
@@ -63,35 +72,80 @@ async def websocket_audio(ws: WebSocket):
                 await ws.close(code=1003, reason="invalid header values")
                 return
 
-            pcm = message[WS_HEADER_SIZE:]
-            sample_width = 2
-            if len(pcm) == 0 or len(pcm) % (sample_width * channels) != 0:
-                await ws.close(code=1003, reason="invalid pcm length")
+            payload = message[WS_HEADER_SIZE:]
+            if payload_bytes != len(payload):
+                await ws.close(code=1003, reason="payload length mismatch")
                 return
 
-            frames = len(pcm) // (sample_width * channels)
-            duration_seconds = frames / float(sample_rate)
+            sample_width = 2
+            if msg_type == WS_MSG_START:
+                pcm_buffer = bytearray()
+                current_sample_rate = sample_rate
+                current_channels = channels
+                streaming = True
+                continue
 
-            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
-            filename = f"rec_ws_{timestamp}.wav"
-            filepath = RECORDINGS_DIR / filename
+            if msg_type == WS_MSG_DATA:
+                if not streaming:
+                    await ws.close(code=1003, reason="data received before start")
+                    return
+                if sample_rate != current_sample_rate or channels != current_channels:
+                    await ws.close(code=1003, reason="mismatched audio params")
+                    return
+                if payload_bytes % (sample_width * channels) != 0:
+                    await ws.close(code=1003, reason="invalid pcm chunk length")
+                    return
+                pcm_buffer.extend(payload)
+                continue
 
-            with wave.open(str(filepath), "wb") as wav_fp:
-                wav_fp.setnchannels(channels)
-                wav_fp.setsampwidth(sample_width)
-                wav_fp.setframerate(sample_rate)
-                wav_fp.writeframes(pcm)
+            if msg_type == WS_MSG_END:
+                if not streaming:
+                    await ws.close(code=1003, reason="end received before start")
+                    return
+                if sample_rate != current_sample_rate or channels != current_channels:
+                    await ws.close(code=1003, reason="mismatched audio params on end")
+                    return
+                if payload_bytes % (sample_width * channels) != 0:
+                    await ws.close(code=1003, reason="invalid pcm tail length")
+                    return
+                pcm_buffer.extend(payload)
 
-            await ws.send_json(
-                {
-                    "text": f"Saved as {filename}",
-                    "sample_rate": sample_rate,
-                    "frames": frames,
-                    "channels": channels,
-                    "duration_seconds": round(duration_seconds, 3),
-                    "path": f"recordings/{filename}",
-                }
-            )
+                if len(pcm_buffer) == 0 or len(pcm_buffer) % (sample_width * channels) != 0:
+                    await ws.close(code=1003, reason="invalid accumulated pcm length")
+                    return
+
+                frames = len(pcm_buffer) // (sample_width * channels)
+                duration_seconds = frames / float(current_sample_rate)
+
+                timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
+                filename = f"rec_ws_{timestamp}.wav"
+                filepath = RECORDINGS_DIR / filename
+
+                with wave.open(str(filepath), "wb") as wav_fp:
+                    wav_fp.setnchannels(current_channels)
+                    wav_fp.setsampwidth(sample_width)
+                    wav_fp.setframerate(current_sample_rate)
+                    wav_fp.writeframes(pcm_buffer)
+
+                await ws.send_json(
+                    {
+                        "text": f"Saved as {filename}",
+                        "sample_rate": current_sample_rate,
+                        "frames": frames,
+                        "channels": current_channels,
+                        "duration_seconds": round(duration_seconds, 3),
+                        "path": f"recordings/{filename}",
+                    }
+                )
+
+                streaming = False
+                pcm_buffer = bytearray()
+                current_sample_rate = None
+                current_channels = None
+                continue
+
+            await ws.close(code=1003, reason="unknown msg type")
+            return
     except WebSocketDisconnect:
         return
 

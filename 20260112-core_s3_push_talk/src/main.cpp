@@ -4,6 +4,7 @@
 #include <M5Unified.h>
 #include <WiFi.h>
 #include <WebSocketsClient.h>
+#include <algorithm>
 #include <cstring>
 #include <vector>
 #include "config.h"
@@ -15,30 +16,44 @@ const char *SERVER_HOST = SERVER_HOST_H;
 const int SERVER_PORT = SERVER_PORT_H;
 const char *SERVER_PATH = SERVER_PATH_H; // WebSocket エンドポイント
 const int SAMPLE_RATE = 16000;           // 16kHz モノラル
-const int MAX_RECORD_MS = 5000;          // 最大5秒（テスト用）
 /////////////////////////////////////////////
 
 #define STATE_IDLE 0
-#define STATE_RECORDING 1
-#define STATE_SENDING 2
+#define STATE_STREAMING 1
 
-uint8_t state = 0;
-static constexpr const size_t record_length = 200;
-static constexpr const size_t record_number = SAMPLE_RATE * MAX_RECORD_MS / 1000 / record_length;
-static constexpr const size_t record_samplerate = SAMPLE_RATE;
-static constexpr const size_t record_size = record_number * record_length;
-static size_t rec_record_idx = 2;
-static size_t draw_record_idx = 0;
-static int16_t *rec_data;
+uint8_t state = STATE_IDLE;
+
+// 0.5 秒ごとに 16kHz * 0.5 = 8,000 サンプルを送る
+static constexpr size_t CHUNK_SAMPLES = SAMPLE_RATE / 2; // 8,000 samples ≒ 0.5s
+static constexpr size_t MIC_READ_SAMPLES = 256;          // 一度にマイクから読むサンプル数
+static constexpr size_t RING_CAPACITY_SAMPLES = SAMPLE_RATE * 2; // 2 秒分のリングバッファ
+
+static int16_t *ring_buffer = nullptr;
+static size_t ring_write = 0;
+static size_t ring_read = 0;
+static size_t ring_available = 0;
+
 static WebSocketsClient wsClient;
+
+enum class MessageType : uint8_t
+{
+  START = 1,
+  DATA = 2,
+  END = 3,
+};
 
 struct __attribute__((packed)) WsAudioHeader
 {
   char kind[4];        // "PCM1"
+  uint8_t messageType; // MessageType
+  uint8_t reserved;    // 0
+  uint16_t seq;        // sequence number
   uint32_t sampleRate; // LE
   uint16_t channels;   // 1
-  uint16_t reserved;   // 0
+  uint16_t payloadBytes; // PCM payload bytes following the header
 };
+
+static uint16_t seq_counter = 0;
 
 void connectWiFi()
 {
@@ -54,9 +69,8 @@ void setup()
 {
   auto cfg = M5.config();
   M5.begin(cfg);
-
-  rec_data = (typeof(rec_data))heap_caps_malloc(record_size * sizeof(int16_t), MALLOC_CAP_8BIT);
-  memset(rec_data, 0, record_size * sizeof(int16_t));
+  ring_buffer = (int16_t *)heap_caps_malloc(RING_CAPACITY_SAMPLES * sizeof(int16_t), MALLOC_CAP_8BIT);
+  memset(ring_buffer, 0, RING_CAPACITY_SAMPLES * sizeof(int16_t));
 
   M5.Display.setTextSize(2);
   M5.Display.println("CoreS3 SE - AI Home Agent (WS)");
@@ -82,11 +96,99 @@ void setup()
                      case WStype_TEXT:
                        M5.Display.printf("WS msg: %.*s\n", (int)length, payload);
                        break;
+                     case WStype_BIN:
+                       M5.Display.printf("WS bin len: %d\n", (int)length);
+                       break;
                      default:
                        break;
                      } });
   wsClient.setReconnectInterval(2000);
   wsClient.enableHeartbeat(15000, 3000, 2);
+}
+
+static inline void ringPush(const int16_t *src, size_t samples)
+{
+  if (samples == 0)
+  {
+    return;
+  }
+
+  // もし追加分がバッファを超えるなら古いデータを捨てる
+  if (samples > RING_CAPACITY_SAMPLES)
+  {
+    src += (samples - RING_CAPACITY_SAMPLES);
+    samples = RING_CAPACITY_SAMPLES;
+  }
+
+  size_t overflow = (ring_available + samples > RING_CAPACITY_SAMPLES) ? (ring_available + samples - RING_CAPACITY_SAMPLES) : 0;
+  if (overflow > 0)
+  {
+    ring_read = (ring_read + overflow) % RING_CAPACITY_SAMPLES;
+    ring_available -= overflow;
+  }
+
+  size_t first = std::min(samples, RING_CAPACITY_SAMPLES - ring_write);
+  memcpy(ring_buffer + ring_write, src, first * sizeof(int16_t));
+  size_t remain = samples - first;
+  if (remain > 0)
+  {
+    memcpy(ring_buffer, src + first, remain * sizeof(int16_t));
+  }
+  ring_write = (ring_write + samples) % RING_CAPACITY_SAMPLES;
+  ring_available += samples;
+}
+
+static inline size_t ringPop(int16_t *dst, size_t samples)
+{
+  size_t to_read = std::min(samples, ring_available);
+  if (to_read == 0)
+  {
+    return 0;
+  }
+
+  size_t first = std::min(to_read, RING_CAPACITY_SAMPLES - ring_read);
+  memcpy(dst, ring_buffer + ring_read, first * sizeof(int16_t));
+  size_t remain = to_read - first;
+  if (remain > 0)
+  {
+    memcpy(dst + first, ring_buffer, remain * sizeof(int16_t));
+  }
+  ring_read = (ring_read + to_read) % RING_CAPACITY_SAMPLES;
+  ring_available -= to_read;
+  return to_read;
+}
+
+static bool wsConnected()
+{
+  return (WiFi.status() == WL_CONNECTED) && wsClient.isConnected();
+}
+
+static bool sendPacket(MessageType type, const int16_t *samples, size_t sampleCount)
+{
+  if (!wsConnected())
+  {
+    return false;
+  }
+
+  WsAudioHeader header{};
+  memcpy(header.kind, "PCM1", 4);
+  header.messageType = static_cast<uint8_t>(type);
+  header.reserved = 0;
+  header.seq = seq_counter++;
+  header.sampleRate = static_cast<uint32_t>(SAMPLE_RATE);
+  header.channels = 1;
+  header.payloadBytes = static_cast<uint16_t>(sampleCount * sizeof(int16_t));
+
+  std::vector<uint8_t> packet;
+  packet.resize(sizeof(WsAudioHeader) + header.payloadBytes);
+  memcpy(packet.data(), &header, sizeof(WsAudioHeader));
+  if (header.payloadBytes > 0 && samples != nullptr)
+  {
+    memcpy(packet.data() + sizeof(WsAudioHeader), samples, header.payloadBytes);
+  }
+
+  wsClient.sendBIN(packet.data(), packet.size());
+  return true;
 }
 
 void loop()
@@ -97,63 +199,72 @@ void loop()
   if (state == STATE_IDLE)
   {
     M5.Display.setCursor(0, 40);
-    M5.Display.println("Press and hold Btn A to record.");
+    M5.Display.println("Hold Btn A: start / Release: stop");
 
     if (M5.BtnA.wasPressed())
     {
-      M5.Display.println("Recording... (hold A)");
-      state = STATE_RECORDING;
-      rec_record_idx = 0;
+      ring_available = 0;
+      ring_write = 0;
+      ring_read = 0;
+      seq_counter = 0;
+
+      if (sendPacket(MessageType::START, nullptr, 0))
+      {
+        M5.Display.println("Streaming...");
+      }
+      else
+      {
+        M5.Display.println("WS not connected (start)");
+        state = STATE_IDLE;
+        return;
+      }
+
+      state = STATE_STREAMING;
     }
     return;
   }
 
-  if (state == STATE_RECORDING)
+  if (state == STATE_STREAMING)
   {
+    static int16_t mic_buf[MIC_READ_SAMPLES];
     if (M5.Mic.isEnabled())
     {
-      static constexpr int shift = 6;
-      auto data = &rec_data[rec_record_idx * record_length];
-      if (M5.Mic.record(data, record_length, record_samplerate))
+      if (M5.Mic.record(mic_buf, MIC_READ_SAMPLES, SAMPLE_RATE))
       {
-        data = &rec_data[draw_record_idx * record_length];
-
-        if (++rec_record_idx >= record_number)
-        {
-          rec_record_idx = 0;
-          state = STATE_SENDING;
-          M5.Display.println("recording full.");
-        }
+        ringPush(mic_buf, MIC_READ_SAMPLES);
       }
     }
-  }
-  if (state == STATE_SENDING)
-  {
-    // WebSocket BIN (ヘッダ + PCM16LE生データ)
-    M5.Display.println("Uploading...");
-    if ((WiFi.status() == WL_CONNECTED) && wsClient.isConnected())
+
+    // 0.5 秒分たまったら逐次送信
+    while (ring_available >= CHUNK_SAMPLES)
     {
-      size_t byte_size = record_size * sizeof(int16_t);
-
-      WsAudioHeader header{};
-      memcpy(header.kind, "PCM1", 4);
-      header.sampleRate = (uint32_t)SAMPLE_RATE;
-      header.channels = 1;
-      header.reserved = 0;
-
-      std::vector<uint8_t> packet;
-      packet.resize(sizeof(WsAudioHeader) + byte_size);
-      memcpy(packet.data(), &header, sizeof(WsAudioHeader));
-      memcpy(packet.data() + sizeof(WsAudioHeader), rec_data, byte_size);
-
-      wsClient.sendBIN(packet.data(), packet.size());
-      M5.Display.println("WS send done.");
+      static int16_t send_buf[CHUNK_SAMPLES];
+      size_t got = ringPop(send_buf, CHUNK_SAMPLES);
+      if (!sendPacket(MessageType::DATA, send_buf, got))
+      {
+        M5.Display.println("WS send failed (data)");
+        state = STATE_IDLE;
+        return;
+      }
     }
-    else
+
+    // ボタンを離したら残りを送って終了メッセージ
+    if (M5.BtnA.wasReleased())
     {
-      M5.Display.println("WS not connected.");
+      if (ring_available > 0)
+      {
+        static int16_t tail_buf[CHUNK_SAMPLES];
+        size_t got = ringPop(tail_buf, ring_available);
+        if (!sendPacket(MessageType::DATA, tail_buf, got))
+        {
+          M5.Display.println("WS send failed (tail)");
+          state = STATE_IDLE;
+          return;
+        }
+      }
+      sendPacket(MessageType::END, nullptr, 0);
+      state = STATE_IDLE;
+      M5.Display.println("Stopped. Hold Btn A to start.");
     }
-    state = STATE_IDLE;
-    M5.Display.println("Press and hold Btn A to record.");
   }
 }
