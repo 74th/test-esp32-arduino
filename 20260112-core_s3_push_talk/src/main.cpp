@@ -5,11 +5,12 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <base64.h>
+#include "config.h"
 
 //////////////////// 設定 ////////////////////
-const char *WIFI_SSID = "YOUR_SSID";
-const char *WIFI_PASS = "YOUR_PASS";
-const char *SERVER_URL = "http://<PCのIP>:8000/api/v1/audio"; // 後述FastAPIのエンドポイント
+const char *WIFI_SSID = WIFI_SSID_H;
+const char *WIFI_PASS = WIFI_PASSWORD_H;
+const char *SERVER_URL = "http://SERVER_IP:8000/api/v1/audio"; // 後述FastAPIのエンドポイント
 const int SAMPLE_RATE = 16000;                                // 16kHz モノラル
 const int MAX_RECORD_MS = 5000;                               // 最大5秒（テスト用）
 /////////////////////////////////////////////
