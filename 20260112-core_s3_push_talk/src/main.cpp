@@ -37,6 +37,9 @@ static size_t ring_available = 0;
 static std::vector<uint8_t> tts_buffer;
 static uint32_t tts_expected = 0;
 static uint32_t tts_received = 0;
+static bool tts_ready_to_play = false;
+static bool tts_playing = false;
+static bool tts_mic_was_enabled = false;
 
 static WebSocketsClient wsClient;
 
@@ -113,6 +116,7 @@ void setup()
                          if (total == 0 || offset + chunk_len > total)
                          {
                            M5.Display.println("Invalid WAV chunk header");
+                           log_e("Invalid chunk hdr: total=%lu offset=%lu chunk=%u len=%u", (unsigned long)total, (unsigned long)offset, (unsigned)chunk_len, (unsigned)length);
                            break;
                          }
 
@@ -122,12 +126,16 @@ void setup()
                            tts_buffer.assign(total, 0);
                            tts_expected = total;
                            tts_received = 0;
+                           tts_ready_to_play = false;
+                           tts_playing = false;
                            M5.Display.printf("Recv TTS total=%u bytes\n", (unsigned)total);
+                           log_i("TTS start total=%lu", (unsigned long)total);
                          }
 
                          if (offset != tts_received)
                          {
                            M5.Display.println("Unexpected WAV offset, dropping");
+                           log_e("Unexpected offset: got=%lu expected=%lu", (unsigned long)offset, (unsigned long)tts_received);
                            tts_expected = 0;
                            tts_received = 0;
                            tts_buffer.clear();
@@ -136,14 +144,13 @@ void setup()
 
                          memcpy(tts_buffer.data() + offset, payload + 12, chunk_len);
                          tts_received += chunk_len;
+                         log_d("TTS chunk offset=%lu size=%u recv=%lu/%lu", (unsigned long)offset, (unsigned)chunk_len, (unsigned long)tts_received, (unsigned long)tts_expected);
 
                          if (tts_received >= tts_expected)
                          {
-                           M5.Display.printf("Play TTS wav: %u bytes\n", (unsigned)tts_expected);
-                           M5.Speaker.playWav(tts_buffer.data(), tts_expected);
-                           tts_buffer.clear();
-                           tts_expected = 0;
-                           tts_received = 0;
+                           M5.Display.printf("TTS ready: %u bytes\n", (unsigned)tts_expected);
+                           log_i("TTS ready total=%lu", (unsigned long)tts_expected);
+                           tts_ready_to_play = true;
                          }
                        }
                        else
@@ -260,23 +267,25 @@ void loop()
       ring_read = 0;
       seq_counter = 0;
 
+      // TTS 受信・再生状態を初期化
+      tts_buffer.clear();
+      tts_expected = 0;
+      tts_received = 0;
+      tts_ready_to_play = false;
+      tts_playing = false;
+
       if (sendPacket(MessageType::START, nullptr, 0))
       {
         M5.Display.println("Streaming...");
+        state = STATE_STREAMING;
       }
       else
       {
         M5.Display.println("WS not connected (start)");
-        state = STATE_IDLE;
-        return;
       }
-
-      state = STATE_STREAMING;
     }
-    return;
   }
-
-  if (state == STATE_STREAMING)
+  else if (state == STATE_STREAMING)
   {
     static int16_t mic_buf[MIC_READ_SAMPLES];
     if (M5.Mic.isEnabled())
@@ -317,6 +326,52 @@ void loop()
       sendPacket(MessageType::END, nullptr, 0);
       state = STATE_IDLE;
       M5.Display.println("Stopped. Hold Btn A to start.");
+
+      // 終了直後のTTS再生でMic/Speakerが競合しないよう、少し待つ
+      delay(20);
+    }
+  }
+
+  // ---- Downlink TTS playback (deferred from WS callback) ----
+  if (tts_ready_to_play && !tts_playing)
+  {
+    if (tts_buffer.empty())
+    {
+      tts_ready_to_play = false;
+      return;
+    }
+    M5.Speaker.stop();
+    M5.Display.println("Playing TTS...");
+    tts_mic_was_enabled = M5.Mic.isEnabled();
+    if (tts_mic_was_enabled)
+    {
+      M5.Mic.end();
+      log_i("Mic stopped for TTS playback");
+      delay(10);
+    }
+
+    log_i("TTS play start size=%u", (unsigned)tts_buffer.size());
+    M5.Speaker.playWav(tts_buffer.data(), tts_buffer.size());
+    tts_playing = true;
+    tts_ready_to_play = false;
+  }
+
+  if (tts_playing && !M5.Speaker.isPlaying())
+  {
+    log_i("TTS play done");
+    M5.Speaker.stop();
+    M5.Speaker.end();
+    delay(10);
+    tts_buffer.clear();
+    tts_expected = 0;
+    tts_received = 0;
+    tts_playing = false;
+    M5.Display.println("TTS done.");
+
+    if (tts_mic_was_enabled && !M5.Mic.isEnabled())
+    {
+      M5.Mic.begin();
+      log_i("Mic restarted after TTS playback");
     }
   }
 }
