@@ -5,3 +5,6 @@ WebSocket経由で、PCに、マイクの音声を送信して、さらに音声
 この音声受け取って返すまでの部分をAIエージェント化すれば、様々な応用ができそう。
 
 ![](./graph.drawio.svg)
+
+- ファームウェアのコード: [src/main.cpp](./src/main.cpp)
+- FastAPIサーバーのコード: [server/main.py](./server/main.py)
