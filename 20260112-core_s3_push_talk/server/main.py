@@ -1,4 +1,5 @@
 from __future__ import annotations
+from vvclient import Client as VVClient
 
 import struct
 import wave
@@ -19,6 +20,9 @@ WS_KIND_PCM1 = b"PCM1"
 WS_MSG_START = 1
 WS_MSG_DATA = 2
 WS_MSG_END = 3
+
+def create_voicevox_client() -> VVClient:
+    return VVClient(base_uri="http://localhost:50021")
 
 
 def _ulaw_byte_to_linear(sample: int) -> int:
@@ -145,6 +149,14 @@ async def websocket_audio(ws: WebSocket):
                 pcm_buffer = bytearray()
                 current_sample_rate = None
                 current_channels = None
+
+                async with create_voicevox_client() as client:
+                    audio_query = await client.create_audio_query(
+                        "こんにちは！", speaker=1
+                    )
+                    with open("voice.wav", "wb") as f:
+                        f.write(await audio_query.synthesis(speaker=1))
+
                 continue
 
             await ws.close(code=1003, reason="unknown msg type")
