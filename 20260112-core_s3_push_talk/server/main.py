@@ -114,6 +114,9 @@ async def websocket_audio(ws: WebSocket):
                     await ws.close(code=1003, reason="invalid accumulated pcm length")
                     return
 
+                assert current_sample_rate is not None
+                assert current_channels is not None
+
                 frames = len(pcm_buffer) // (sample_width * channels)
                 duration_seconds = frames / float(current_sample_rate)
 
