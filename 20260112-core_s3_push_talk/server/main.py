@@ -5,13 +5,17 @@ import wave
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 
 app = FastAPI(title="CoreS3 PCM receiver")
 
 BASE_DIR = Path(__file__).resolve().parent
 RECORDINGS_DIR = BASE_DIR / "recordings"
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
+
+WS_HEADER_FMT = "<4sIHH"  # kind, sample_rate, channels, reserved
+WS_HEADER_SIZE = struct.calcsize(WS_HEADER_FMT)
+WS_KIND_PCM1 = b"PCM1"
 
 
 def _ulaw_byte_to_linear(sample: int) -> int:
@@ -39,6 +43,57 @@ def mulaw_to_pcm16(payload: bytes) -> bytes:
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.websocket("/ws/audio")
+async def websocket_audio(ws: WebSocket):
+    await ws.accept()
+    try:
+        while True:
+            message = await ws.receive_bytes()
+            if len(message) < WS_HEADER_SIZE:
+                await ws.close(code=1003, reason="header too short")
+                return
+
+            kind, sample_rate, channels, _ = struct.unpack(WS_HEADER_FMT, message[:WS_HEADER_SIZE])
+            if kind != WS_KIND_PCM1:
+                await ws.close(code=1003, reason="unsupported kind")
+                return
+            if sample_rate <= 0 or channels <= 0:
+                await ws.close(code=1003, reason="invalid header values")
+                return
+
+            pcm = message[WS_HEADER_SIZE:]
+            sample_width = 2
+            if len(pcm) == 0 or len(pcm) % (sample_width * channels) != 0:
+                await ws.close(code=1003, reason="invalid pcm length")
+                return
+
+            frames = len(pcm) // (sample_width * channels)
+            duration_seconds = frames / float(sample_rate)
+
+            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
+            filename = f"rec_ws_{timestamp}.wav"
+            filepath = RECORDINGS_DIR / filename
+
+            with wave.open(str(filepath), "wb") as wav_fp:
+                wav_fp.setnchannels(channels)
+                wav_fp.setsampwidth(sample_width)
+                wav_fp.setframerate(sample_rate)
+                wav_fp.writeframes(pcm)
+
+            await ws.send_json(
+                {
+                    "text": f"Saved as {filename}",
+                    "sample_rate": sample_rate,
+                    "frames": frames,
+                    "channels": channels,
+                    "duration_seconds": round(duration_seconds, 3),
+                    "path": f"recordings/{filename}",
+                }
+            )
+    except WebSocketDisconnect:
+        return
 
 
 @app.post("/api/v1/audio")
