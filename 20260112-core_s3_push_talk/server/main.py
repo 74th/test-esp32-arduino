@@ -1,4 +1,5 @@
-from __future__ import annotations
+from logging import StreamHandler, getLogger
+# from __future__ import annotations
 from vvclient import Client as VVClient
 
 import struct
@@ -10,6 +11,10 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconn
 
 app = FastAPI(title="CoreS3 PCM receiver")
 
+logger = getLogger(__name__)
+logger.addHandler(StreamHandler())
+logger.setLevel("DEBUG")
+
 BASE_DIR = Path(__file__).resolve().parent
 RECORDINGS_DIR = BASE_DIR / "recordings"
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
@@ -20,6 +25,10 @@ WS_KIND_PCM1 = b"PCM1"
 WS_MSG_START = 1
 WS_MSG_DATA = 2
 WS_MSG_END = 3
+
+# Downlink: simple WAV chunk header (kind + uint32 length + data)
+DOWN_KIND_WAV1 = b"WAV1"
+DOWN_WAV_CHUNK = 4096  # bytes per WebSocket frame for synthesized audio
 
 def create_voicevox_client() -> VVClient:
     return VVClient(base_uri="http://localhost:50021")
@@ -150,12 +159,26 @@ async def websocket_audio(ws: WebSocket):
                 current_sample_rate = None
                 current_channels = None
 
-                async with create_voicevox_client() as client:
-                    audio_query = await client.create_audio_query(
-                        "こんにちは！", speaker=1
-                    )
-                    with open("voice.wav", "wb") as f:
-                        f.write(await audio_query.synthesis(speaker=1))
+                logger.info("Saved WAV: %s", filename)
+
+                # VOICEVOX で合成した音声を CoreS3 へ返送（分割送信）
+                try:
+                    async with create_voicevox_client() as client:
+                        audio_query = await client.create_audio_query("こんにちは！", speaker=29)
+                        wav_bytes = await audio_query.synthesis(speaker=29)
+                    logger.info("VOICEVOX synthesis succeeded, sending back WAV")
+
+                    total = len(wav_bytes)
+                    offset = 0
+                    while offset < total:
+                        chunk = wav_bytes[offset : offset + DOWN_WAV_CHUNK]
+                        header = DOWN_KIND_WAV1 + struct.pack("<II", total, offset)
+                        await ws.send_bytes(header + chunk)
+                        offset += len(chunk)
+
+                    logger.info("Sent synthesized WAV back to client in chunks")
+                except Exception as exc:  # pragma: no cover
+                    await ws.send_json({"error": f"voicevox synthesis failed: {exc}"})
 
                 continue
 

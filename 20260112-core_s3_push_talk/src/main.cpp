@@ -33,6 +33,11 @@ static size_t ring_write = 0;
 static size_t ring_read = 0;
 static size_t ring_available = 0;
 
+// Downlink TTS WAV assembly
+static std::vector<uint8_t> tts_buffer;
+static uint32_t tts_expected = 0;
+static uint32_t tts_received = 0;
+
 static WebSocketsClient wsClient;
 
 enum class MessageType : uint8_t
@@ -94,10 +99,57 @@ void setup()
                        M5.Display.printf("WS: connected %s\n", SERVER_PATH);
                        break;
                      case WStype_TEXT:
-                       M5.Display.printf("WS msg: %.*s\n", (int)length, payload);
+                      //  M5.Display.printf("WS msg: %.*s\n", (int)length, payload);
                        break;
                      case WStype_BIN:
-                       M5.Display.printf("WS bin len: %d\n", (int)length);
+                       if (length >= 12 && memcmp(payload, "WAV1", 4) == 0)
+                       {
+                         uint32_t total = 0;
+                         uint32_t offset = 0;
+                         memcpy(&total, payload + 4, sizeof(uint32_t));
+                         memcpy(&offset, payload + 8, sizeof(uint32_t));
+                         size_t chunk_len = length - 12;
+
+                         if (total == 0 || offset + chunk_len > total)
+                         {
+                           M5.Display.println("Invalid WAV chunk header");
+                           break;
+                         }
+
+                         // 新規ストリーム開始
+                         if (offset == 0 || total != tts_expected)
+                         {
+                           tts_buffer.assign(total, 0);
+                           tts_expected = total;
+                           tts_received = 0;
+                           M5.Display.printf("Recv TTS total=%u bytes\n", (unsigned)total);
+                         }
+
+                         if (offset != tts_received)
+                         {
+                           M5.Display.println("Unexpected WAV offset, dropping");
+                           tts_expected = 0;
+                           tts_received = 0;
+                           tts_buffer.clear();
+                           break;
+                         }
+
+                         memcpy(tts_buffer.data() + offset, payload + 12, chunk_len);
+                         tts_received += chunk_len;
+
+                         if (tts_received >= tts_expected)
+                         {
+                           M5.Display.printf("Play TTS wav: %u bytes\n", (unsigned)tts_expected);
+                           M5.Speaker.playWav(tts_buffer.data(), tts_expected);
+                           tts_buffer.clear();
+                           tts_expected = 0;
+                           tts_received = 0;
+                         }
+                       }
+                       else
+                       {
+                         M5.Display.printf("WS bin len: %d\n", (int)length);
+                       }
                        break;
                      default:
                        break;
