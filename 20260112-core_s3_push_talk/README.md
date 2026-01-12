@@ -8,3 +8,7 @@ WebSocket経由で、PCに、マイクの音声を送信して、さらに音声
 
 - ファームウェアのコード: [src/main.cpp](./src/main.cpp)
 - FastAPIサーバーのコード: [server/main.py](./server/main.py)
+
+## 参考コード
+
+M5Unified Microphone サンプル https://github.com/m5stack/M5Unified/blob/master/examples/Basic/Microphone/Microphone.ino
