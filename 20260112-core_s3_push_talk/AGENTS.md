@@ -36,7 +36,7 @@
   - `POST /api/v1/audio`: HTTP 経由で PCM16LE または μ-law を受信し WAV 保存（従来互換）。
   - `WS /ws/audio`: 上記 PCM1 プロトコルを受信。START→DATA 蓄積→END で WAV を保存し JSON でメタ情報を返信。
 - WAV 保存: `server/recordings/rec_ws_YYYYmmdd_HHMMSS_micro.wav` として PCM16LE を保存（サンプル幅 16bit、モノラル）。
-- VOICEVOX 連携: END 処理後に VOICEVOX クライアント（`voicevox-client` の `VVClient`）を起動し、`"こんにちは！"` を speaker=1 で合成して `voice.wav` を生成。
+- VOICEVOX 連携: END 処理後に VOICEVOX クライアント（`voicevox-client` の `VVClient`）を起動し、`"こんにちは！"` を speaker=1 で合成。生成した WAV を WebSocket BIN メッセージ（`WAV1` + `<uint32 length>` + wav バイト列）で CoreS3 に返送し、CoreS3 側スピーカーで再生する。
   - 期待するサービス: `http://localhost:50021`（docker-compose で `voicevox_engine` がリッスン）。
 
 ## 依存・周辺
@@ -48,3 +48,4 @@
 1. サーバーを起動し VOICEVOX コンテナを立ち上げる（`docker compose up -d` in `server/`）。
 2. CoreS3 を Wi-Fi に接続し、BtnA 押下で START 送信→マイク録音開始。
 3. 0.5 秒ごとに DATA を連続送信。
+4. BtnA を離すと残りを送信して END。サーバー側で WAV 保存→JSON 返信→VOICEVOX 合成 WAV を下り BIN で返し、CoreS3 が再生。

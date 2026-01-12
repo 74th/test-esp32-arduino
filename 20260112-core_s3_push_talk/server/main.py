@@ -8,8 +8,10 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from google.cloud import speech
 
 app = FastAPI(title="CoreS3 PCM receiver")
+sst_client = speech.SpeechClient()
 
 logger = getLogger(__name__)
 logger.addHandler(StreamHandler())
@@ -154,17 +156,34 @@ async def websocket_audio(ws: WebSocket):
                     }
                 )
 
+                logger.info("Saved WAV: %s", filename)
+
+                audio = speech.RecognitionAudio(content=bytes(pcm_buffer))
+                config = speech.RecognitionConfig(
+                    encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+                    sample_rate_hertz=16000,
+                    language_code="ja-JP",
+                )
+                response = sst_client.recognize(config=config, audio=audio)
+
+                transcript = ""
+                for result in response.results:
+                    logger.info(f"Transcript: {result.alternatives[0].transcript}")
+                    transcript += result.alternatives[0].transcript
+
                 streaming = False
                 pcm_buffer = bytearray()
                 current_sample_rate = None
                 current_channels = None
 
-                logger.info("Saved WAV: %s", filename)
+                voice_text = transcript
+                if not transcript:
+                    voice_text = "音声を認識できませんでした。"
 
                 # VOICEVOX で合成した音声を CoreS3 へ返送（分割送信）
                 try:
                     async with create_voicevox_client() as client:
-                        audio_query = await client.create_audio_query("こんにちは！", speaker=29)
+                        audio_query = await client.create_audio_query(voice_text, speaker=29)
                         wav_bytes = await audio_query.synthesis(speaker=29)
                     logger.info("VOICEVOX synthesis succeeded, sending back WAV")
 
