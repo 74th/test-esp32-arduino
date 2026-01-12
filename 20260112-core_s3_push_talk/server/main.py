@@ -7,7 +7,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 
-app = FastAPI(title="CoreS3 μ-law receiver")
+app = FastAPI(title="CoreS3 PCM receiver")
 
 BASE_DIR = Path(__file__).resolve().parent
 RECORDINGS_DIR = BASE_DIR / "recordings"
@@ -17,7 +17,7 @@ RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 def _ulaw_byte_to_linear(sample: int) -> int:
     """Convert a single μ-law byte to 16-bit PCM (int).
 
-    Ported from the inverse of the Arduino-side `linear2ulaw` logic. Matches G.711 μ-law.
+    Kept for compatibility if we ever need to accept μ-law again.
     """
 
     u_val = (~sample) & 0xFF
@@ -29,8 +29,6 @@ def _ulaw_byte_to_linear(sample: int) -> int:
 
 
 def mulaw_to_pcm16(payload: bytes) -> bytes:
-    """Decode μ-law bytes to little-endian 16-bit PCM bytes."""
-
     out = bytearray(len(payload) * 2)
     for i, b in enumerate(payload):
         sample = _ulaw_byte_to_linear(b)
@@ -45,9 +43,9 @@ async def health() -> dict[str, str]:
 
 @app.post("/api/v1/audio")
 async def receive_audio(request: Request) -> dict[str, object]:
-    codec = request.headers.get("X-Codec", "mulaw").lower()
-    if codec not in {"mulaw", "ulaw"}:
-        raise HTTPException(status_code=400, detail="Unsupported codec. Only mulaw/ulaw are accepted.")
+    codec = request.headers.get("X-Codec", "pcm16le").lower()
+    if codec not in {"pcm16", "pcm16le", "mulaw", "ulaw"}:
+        raise HTTPException(status_code=400, detail="Unsupported codec. Use pcm16le (preferred) or mulaw.")
 
     sample_rate_raw = request.headers.get("X-Sample-Rate", "16000")
     try:
@@ -62,9 +60,16 @@ async def receive_audio(request: Request) -> dict[str, object]:
         raise HTTPException(status_code=400, detail="Request body is empty.")
 
     try:
-        pcm = mulaw_to_pcm16(payload)
+        if codec in {"pcm16", "pcm16le"}:
+            if len(payload) % 2 != 0:
+                raise HTTPException(status_code=400, detail="PCM16 payload size must be even.")
+            pcm = payload
+        else:
+            pcm = mulaw_to_pcm16(payload)
+    except HTTPException:
+        raise
     except Exception as exc:  # pragma: no cover - defensive
-        raise HTTPException(status_code=400, detail=f"Failed to decode μ-law payload: {exc}")
+        raise HTTPException(status_code=400, detail=f"Failed to decode audio payload: {exc}")
 
     frames = len(pcm) // 2
     duration_seconds = frames / float(sample_rate)
