@@ -45,7 +45,8 @@ void loop()
     uint32_t sample_rate_ = 24000;
     bool stereo_ = false;
 
-    M5.Speaker.playRaw(_binary_data_voice_pcm_start, sample_len, sample_rate_, stereo_, 1, 0, true);
+    // int16_t*にキャストしないと、8bit PCMとして扱われてしまい、音割れする
+    M5.Speaker.playRaw(reinterpret_cast<const int16_t*>(_binary_data_voice_pcm_start), sample_len, sample_rate_, stereo_, 1, 0, true);
 #endif
   }
   if (M5.BtnA.wasReleased()){
