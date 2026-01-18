@@ -1,0 +1,9 @@
+[project]
+name = "20260118-m5unified-speaker"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "voicevox-client>=1.1.0",
+]
