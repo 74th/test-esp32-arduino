@@ -23,7 +23,8 @@ def after_upload(source, target, env):
     # arduino-esp32のsrmodels.bin（PlatformIOのframeworkパッケージ内にある前提）
     framework_dir = env.PioPlatform().get_package_dir("framework-arduinoespressif32")
     chip = env.BoardConfig().get("build.mcu", "esp32s3")  # CoreS3ならesp32s3想定
-    srmodels = os.path.join(framework_dir, "tools", "esp32-arduino-libs", chip, "esp_sr", "srmodels.bin")
+    # srmodels = os.path.join(framework_dir, "tools", "esp32-arduino-libs", chip, "esp_sr", "srmodels.bin")
+    srmodels = os.path.join("./srmodels.bin")
 
     if not os.path.exists(srmodels):
         raise RuntimeError(f"srmodels.bin not found: {srmodels}")
