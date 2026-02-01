@@ -1,4 +1,5 @@
 
+#include "M5Unified.h"
 #include "ESP_I2S.h"
 #include "ESP_SR.h"
 
@@ -42,7 +43,12 @@ static const sr_cmd_t sr_commands[] = {
 
 void onSrEvent(sr_event_t event, int command_id, int phrase_id) {
   switch (event) {
-    case SR_EVENT_WAKEWORD: Serial.println("WakeWord Detected!"); break;
+    case SR_EVENT_WAKEWORD:
+      Serial.println("WakeWord Detected!");
+      M5.Display.fillScreen(TFT_BLACK);
+      M5.Display.setCursor(0, 0);
+      M5.Display.println("WakeWord Detected!");
+      break;
     case SR_EVENT_WAKEWORD_CHANNEL:
       Serial.printf("WakeWord Channel %d Verified!\n", command_id);
       // ESP_SR.setMode(SR_MODE_COMMAND);  // Switch to Command detection
@@ -68,7 +74,12 @@ void onSrEvent(sr_event_t event, int command_id, int phrase_id) {
 }
 
 void setup() {
-  Serial.begin(115200);
+  M5.begin();
+  M5.Display.setRotation(1);
+  M5.Display.setTextSize(2);
+  M5.Display.println("Init...");
+  M5.Mic.begin();
+  delay(500);
 
   // pinMode(LIGHT_PIN, OUTPUT);
   // digitalWrite(LIGHT_PIN, LOW);
@@ -77,15 +88,22 @@ void setup() {
 
   i2s.setPins(I2S_PIN_BCK, I2S_PIN_WS, -1, I2S_PIN_DIN);
   i2s.setTimeout(1000);
-  i2s.begin(I2S_MODE_STD, 16000, I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO);
+  // i2s.begin(I2S_MODE_STD, 16000, I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_STEREO);
+  i2s.begin(I2S_MODE_STD, 16000, I2S_DATA_BIT_WIDTH_16BIT, I2S_SLOT_MODE_MONO);
 
   ESP_SR.onEvent(onSrEvent);
+
   // ESP_SR.begin(i2s, sr_commands, sizeof(sr_commands) / sizeof(sr_cmd_t), SR_CHANNELS_STEREO, SR_MODE_WAKEWORD, SR_INPUT_FORMAT);
-  ESP_SR.begin(i2s, sr_commands, sizeof(sr_commands) / sizeof(sr_cmd_t), SR_CHANNELS_STEREO, SR_MODE_WAKEWORD);
+  // ESP_SR.begin(i2s, sr_commands, sizeof(sr_commands) / sizeof(sr_cmd_t), SR_CHANNELS_STEREO, SR_MODE_WAKEWORD);
+  ESP_SR.begin(i2s, sr_commands, sizeof(sr_commands) / sizeof(sr_cmd_t), SR_CHANNELS_MONO, SR_MODE_WAKEWORD);
   Serial.println("Listening");
+  
+  M5.Display.fillScreen(TFT_BLACK);
+  M5.Display.setCursor(0, 0);
+  M5.Display.println("Listening...");
 }
 
 void loop() {
-  sleep(1);
-  Serial.println(".");
+  // sleep(1);
+  // Serial.println(".");
 }
