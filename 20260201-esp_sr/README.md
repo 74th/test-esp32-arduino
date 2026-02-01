@@ -1,7 +1,7 @@
-# ESP-SR を使ってWake Up Wordsを実現（動いてない！！）
+# ESP-SR を使ってWake Up Wordsを実現（動いてない！！/ Not working yet!!）
 
 > [!Caution]
-> これで動かせていません！！
+> これで動かせていません！！ Not working yet!!
 
 ## PlatformIOの準備
 
@@ -14,7 +14,7 @@ esp32s3でもplatform-pioarduinoを使用するように、platformio-m5stack.in
 extends = platform-pioarduino
 ```
 
-[platformioでモデルを書き込むプログラム作成(ChatGPTが作った）scripts/flash_srmodels.py](./scripts/flash_srmodels.py)
+[platformioで音声認識モデルを書き込むプログラム作成(ChatGPTが作った）scripts/flash_srmodels.py](./scripts/flash_srmodels.py)
 
 パーティションファイルは、以下から、`partitions_esp_sr_16.csv` として保存
 
@@ -45,7 +45,16 @@ extra_scripts = post:scripts/flash_srmodels.py
 
 ## srmodels.bin を作る
 
+srmodels.bin はESP-SR用の音声認識モデルをまとめたバイナリファイル。
+モデルを選択して、1バイナリにまとめる必要がある。
+
+手順
+
 https://github.com/espressif/esp-sr/tree/master/docs/en/flash_model
+
+なお、Arduino IDEでは以下のディレクトリに、Hi,ESP のモデルのバイナリがある。
+
+> ~/Library/Arduino15/packages/esp32/tools/esp32s3-libs/3.3.6/esp_sr/srmodels.bin
 
 esp-idf の menuconfig 中に機能があり、esp-idfプロジェクトが必要
 
@@ -100,7 +109,7 @@ idf.py menuconfig
 - `english recognition (mn5q8_en)` にチェックを付ける(Enter)
 - `S` で保存、`Q` で終了
 
-> [!Infomation]
+> [!IMPORTANT]
 > WakeUpWordしか利用しない場合、 English Speech Commands Model は不要ですが、ArduinoのESP-SRライブラリが常に読み込むようになっており、これがないとクラッシュしました
 
 sdkconfig の生成？
@@ -115,6 +124,12 @@ srmodels.bin のビルド
 ESP_SR_PATH=~/ghq/github.com/espressif/esp-sr
 SDKCONFIG_PATH=~/tmp/sr_model_proj/sdkconfig
 python ${ESP_SR_PATH}/model/movemodel.py -d1 ${SDKCONFIG_PATH} -d2 ${ESP_SR_PATH} -d3 ./build/
+```
+
+モデルをプロジェクト内にコピー
+
+```
+cp build/srmodels.bin ./
 ```
 
 ## 描き込み後、実行
