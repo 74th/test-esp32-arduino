@@ -32,44 +32,44 @@ void loop()
   M5.update();
 
   // 90->0->180->0->90
-  for (int a = 90; a >= 0; a -= 5)
+  for (int a = 90; a >= 0; a -= 2)
   {
     servo1.write(a);
     delay(DELAY_MS);
   }
-  for (int a = 0; a <= 180; a += 5)
+  for (int a = 0; a <= 180; a += 2)
   {
     servo1.write(a);
     delay(DELAY_MS);
   }
-  for (int a = 180; a >= 0; a -= 5)
+  for (int a = 180; a >= 0; a -= 2)
   {
     servo1.write(a);
     delay(DELAY_MS);
   }
-  for (int a = 0; a <= 90; a += 5)
+  for (int a = 0; a <= 90; a += 2)
   {
     servo1.write(a);
     delay(DELAY_MS);
   }
 
   // 90->0->180->0->90
-  for (int a = 90; a >= 30; a -= 5)
+  for (int a = 90; a >= 80; a -= 2)
   {
     servo2.write(a);
     delay(DELAY_MS);
   }
-  for (int a = 30; a <= 120; a += 5)
+  for (int a = 80; a <= 110; a += 2)
   {
     servo2.write(a);
     delay(DELAY_MS);
   }
-  for (int a = 120; a >= 30; a -= 5)
+  for (int a = 110; a >= 80; a -= 2)
   {
     servo2.write(a);
     delay(DELAY_MS);
   }
-  for (int a = 30; a <= 90; a += 5)
+  for (int a = 80; a <= 90; a += 2)
   {
     servo2.write(a);
     delay(DELAY_MS);
