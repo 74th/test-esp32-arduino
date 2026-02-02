@@ -1,8 +1,14 @@
 #include <M5Unified.h>
 #include <ESP32Servo.h>
 
-static const int SERVO_PIN1 = 1;
-static const int SERVO_PIN2 = 2;
+// CoreS3 Port A
+// static const int SERVO_PIN1 = 1;
+// static const int SERVO_PIN2 = 2;
+
+// CoreS3 with m5-pantilt
+static const int SERVO_PIN1 = 6;
+static const int SERVO_PIN2 = 7;
+
 static Servo servo1;
 static Servo servo2;
 
