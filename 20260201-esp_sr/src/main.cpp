@@ -164,6 +164,7 @@ void loop()
       M5.Display.setTextSize(2);
       M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
       M5.Display.println("Listening...");
+      ESP_SR_M5.resume();
     }
     else
     {
@@ -172,6 +173,7 @@ void loop()
       M5.Display.setTextSize(2);
       M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
       M5.Display.println("zzz...");
+      ESP_SR_M5.pause();
     }
   }
 
