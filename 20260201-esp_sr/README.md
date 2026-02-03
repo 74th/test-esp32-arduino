@@ -4,10 +4,6 @@
 
 [lib/ESP_SR_M5Unified](lib/ESP_SR_M5Unified) を作成し、M5Unifiedの`M5.Mic.record(...)` で取得した音声データを ESP-SR 側に渡して、Wake Up Words を実現する。
 
-## TODO
-
-- 英語認識モデルも入っているので、Wake Up Words だけでも動くようにする。これがあるせいで、2MB以上もあるSRモデルが必要になっている。Hi,Stach Chanモデルだけになればかなり節約できるはず。
-
 ## PlatformIOの準備
 
 https://github.com/3110/m5stack-platformio-boilerplate-code の設定を使用
@@ -115,7 +111,7 @@ idf.py menuconfig
 - `S` で保存、`Q` で終了
 
 > [!IMPORTANT]
-> WakeUpWordしか利用しない場合、 English Speech Commands Model は不要ですが、ArduinoのESP-SRライブラリが常に読み込むようになっており、これがないとクラッシュしました
+> WakeUpWordしか利用しない場合、 English Speech Commands Model は不要です。Arduino ESP_SRライブラリでは、English Speech Commands Model が無いとパニックを起こしますが、この実装では引数のsr_commands_len が0の場合は、音声認識モデルを読み込まないようにしています。
 
 sdkconfig の生成？
 

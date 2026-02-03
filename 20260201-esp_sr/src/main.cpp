@@ -29,12 +29,12 @@ void onSrEvent(sr_event_t event, int command_id, int phrase_id)
     M5.Display.setTextSize(2);
     M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
     M5.Display.println("Listening...");
-    ESP_SR_M5.setMode(SR_MODE_WAKEWORD);
+    // ESP_SR_M5.setMode(SR_MODE_WAKEWORD);
     break;
 
   case SR_EVENT_TIMEOUT:
     // コマンドモードにしてる場合、一定時間で戻す
-    ESP_SR_M5.setMode(SR_MODE_WAKEWORD);
+    // ESP_SR_M5.setMode(SR_MODE_WAKEWORD);
     break;
 
   case SR_EVENT_COMMAND:
