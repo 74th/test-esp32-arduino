@@ -146,7 +146,7 @@ https://x.com/74th/status/2018644006021070944
 モデルが読み込まれると、シリアルのログにそのモデルが表示される。
 
 ```
-19:48:09.434 > Starting ESP_SR_M5...
-19:48:09.589 > MC Quantized wakenet9: wakeNet9_v1h24_Hi,ESP_3_0.63_0.635, tigger:v4, mode:4, p:0, (Dec 16 2025 14:45:55)
-19:48:10.008 > Quantized8 Multinet5: MN5Q8_v2_english_8_0.9_0.90, beam search:v2, (Dec 16 2025 14:45:55)
+21:16:52.589 > Starting ESP_SR_M5...
+21:16:52.744 > MC Quantized wakenet9: wakenet9_tts3h12_Hi,Stack Chan_3_0.585_0.590, tigger:v4, mode:4, p:0, (Dec 16 2025 14:45:55)
+21:16:53.162 > Quantized8 Multinet5: MN5Q8_v2_english_8_0.9_0.90, beam search:v2, (Dec 16 2025 14:45:55)
 ```
