@@ -97,7 +97,7 @@ void setup()
     M5.Display.println("Listening...");
     M5.Display.println();
     M5.Display.setTextSize(1);
-    M5.Display.println("Say: 'Hi ESP'");
+    M5.Display.println("Say: 'Hi Stack Chan'");
     Serial.println("Ready to listen!");
   } else {
     M5.Display.setTextColor(TFT_RED, TFT_BLACK);
