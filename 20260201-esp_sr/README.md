@@ -1,7 +1,11 @@
-# ESP-SR を使ってWake Up Wordsを実現（動いてない！！/ Not working yet!!）
+# ESP-SR を使ってWake Up Wordsを実現
 
-> [!Caution]
-> これで動かせていません！！ Not working yet!!
+[lib/ESP_SR_M5Unified](lib/ESP_SR_M5Unified) を作成し、M5Unifiedの`M5.Mic.record(...)` で取得した音声データを ESP-SR 側に渡して、Wake Up Words を実現する。
+
+## TODO
+
+- 英語認識モデルも入っているので、Wake Up Words だけでも動くようにする
+
 
 ## PlatformIOの準備
 

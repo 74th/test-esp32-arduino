@@ -110,8 +110,8 @@ void loop()
 {
   M5.update();
 
-  // M5.Micから256サンプル(モノラル)を読み取り
-  // 2回分(512サンプル)を蓄積してESP-SRに渡す
+  // M5.Micから256サンプル(ステレオ=512サンプル分のデータ)を読み取り
+  // 2回分を蜂積してESP-SRに渡す
   static int16_t audio_buf[256];
   static int16_t large_buf[512];
   static bool first_half = true;
@@ -129,8 +129,7 @@ void loop()
       first_half = false;
     } else {
       memcpy(large_buf + 256, audio_buf, 256 * sizeof(int16_t));
-      // 512サンプル貯まったのでESP-SRに渡す（モノラルなので512サンプル）
-      ESP_SR_M5.feedAudio(large_buf, 512);
+      // 512サンプル貫まったのでESP-SRに渡す（ステレオなので512サンプル=256フレーム）
       ESP_SR_M5.feedAudio(large_buf, 512);
       first_half = true;
 
