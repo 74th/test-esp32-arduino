@@ -1,12 +1,25 @@
 #include <M5Unified.h>
 #include <ESP_SR_M5Unified.h>
 
+#define WAKEWORD_ONLY 1
+
+#if WAKEWORD_ONLY
 // wakewordだけやりたいならコマンドは 0 個で試す
 static const sr_cmd_t *sr_commands = nullptr;
-// static const sr_cmd_t sr_commands[] = {
-//     {0, "Test", "TEsT"},
-// };
 static constexpr size_t sr_commands_len = 0;
+#else
+// コマンド
+static const sr_cmd_t sr_commands[] = {
+  {0, "Turn on the light", "TkN nN jc LiT"},
+  {0, "Switch on the light", "SWgp nN jc LiT"},
+  {1, "Turn off the light", "TkN eF jc LiT"},
+  {1, "Switch off the light", "SWgp eF jc LiT"},
+  {1, "Go dark", "Gb DnRK"},
+  {2, "Start fan", "STnRT FaN"},
+  {3, "Stop fan", "STnP FaN"},
+};
+static constexpr size_t sr_commands_len = 7;
+#endif
 
 void onSrEvent(sr_event_t event, int command_id, int phrase_id)
 {
@@ -17,11 +30,9 @@ void onSrEvent(sr_event_t event, int command_id, int phrase_id)
     M5.Display.setCursor(10, 10);
     M5.Display.setTextSize(3);
     M5.Display.setTextColor(TFT_BLACK, TFT_GREEN);
+#if WAKEWORD_ONLY
     M5.Display.println("WakeWord!");
     M5.Display.println("Detected!");
-    // 必要ならここで次の状態へ
-    // ESP_SR_M5.setMode(SR_MODE_COMMAND);
-
     // 2秒後に自動的にWakeWordモードに戻す
     delay(2000);
     M5.Display.fillScreen(TFT_BLACK);
@@ -29,19 +40,38 @@ void onSrEvent(sr_event_t event, int command_id, int phrase_id)
     M5.Display.setTextSize(2);
     M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
     M5.Display.println("Listening...");
-    ESP_SR_M5.setMode(SR_MODE_WAKEWORD);
+    ESP_SR_M5.setMode(SR_MODE_WAKEWORD);  // Switch back to WakeWord detection
+#else
+    M5.Display.println("Command?");
+    // コマンドモードへ切り替え
+    ESP_SR_M5.setMode(SR_MODE_COMMAND);
+#endif
     break;
 
   case SR_EVENT_TIMEOUT:
-    // コマンドモードにしてる場合、一定時間で戻す
-    ESP_SR_M5.setMode(SR_MODE_WAKEWORD);
+    M5.Display.fillScreen(TFT_BLACK);
+    M5.Display.setCursor(0, 0);
+    M5.Display.setTextSize(2);
+    M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
+    M5.Display.println("Listening...");
+    ESP_SR_M5.setMode(SR_MODE_WAKEWORD);  // Switch back to WakeWord detection
     break;
 
   case SR_EVENT_COMMAND:
-    // command_id / phrase_id を使って分岐(今回はwakewordだけなら不要)
+    Serial.printf("Command %d Detected! %s\n", command_id, sr_commands[phrase_id].str);
+    M5.Display.fillScreen(TFT_BLUE);
+    M5.Display.setCursor(10, 10);
+    M5.Display.setTextSize(3);
+    M5.Display.setTextColor(TFT_BLACK, TFT_BLUE);
+    M5.Display.println("Command!");
+    M5.Display.println(command_id);
+    M5.Display.println(sr_commands[phrase_id].str);
+    ESP_SR_M5.setMode(SR_MODE_COMMAND);
     break;
 
   default:
+    Serial.println("Unknown Event!");
+    Serial.println(event);
     break;
   }
 }
@@ -106,6 +136,7 @@ void setup()
   }
 }
 
+
 void loop()
 {
   M5.update();
@@ -115,12 +146,41 @@ void loop()
   static int16_t audio_buf[256];
   static int16_t large_buf[512];
   static bool first_half = true;
+  static bool waiting_wake_up_word = true;
 
   bool success = M5.Mic.record(audio_buf, 256);
 
   static uint32_t loop_count = 0;
   static uint32_t error_count = 0;
   static uint32_t last_log_time = 0;
+
+  if(M5.BtnA.wasClicked()) {
+    waiting_wake_up_word = !waiting_wake_up_word;
+    Serial.println("BtnA clicked ");
+    if (waiting_wake_up_word)
+    {
+      M5.Display.fillScreen(TFT_BLACK);
+      M5.Display.setCursor(0, 0);
+      M5.Display.setTextSize(2);
+      M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
+      M5.Display.println("Listening...");
+      ESP_SR_M5.resume();
+    }
+    else
+    {
+      M5.Display.fillScreen(TFT_BLACK);
+      M5.Display.setCursor(0, 0);
+      M5.Display.setTextSize(2);
+      M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
+      M5.Display.println("zzz...");
+      ESP_SR_M5.pause();
+    }
+  }
+
+  if (!waiting_wake_up_word) {
+    // ウェイクワード待機モードでないなら音声データを捨てる
+    return;
+  }
 
   if (success) {
     // 256サンプルをバッファに蓄積（2回で512サンプル）

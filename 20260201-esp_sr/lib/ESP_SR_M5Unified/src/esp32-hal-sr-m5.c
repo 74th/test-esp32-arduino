@@ -213,8 +213,13 @@ static void audio_feed_task_m5(void *arg) {
 
 static void audio_detect_task_m5(void *arg) {
   int afe_chunksize = g_sr_data_m5->afe_handle->get_fetch_chunksize(g_sr_data_m5->afe_data);
-  int mu_chunksize = g_sr_data_m5->multinet->get_samp_chunksize(g_sr_data_m5->model_data);
-  assert(mu_chunksize == afe_chunksize);
+
+  // Only check mu_chunksize if multinet is initialized
+  if (g_sr_data_m5->multinet != NULL && g_sr_data_m5->model_data != NULL) {
+    int mu_chunksize = g_sr_data_m5->multinet->get_samp_chunksize(g_sr_data_m5->model_data);
+    assert(mu_chunksize == afe_chunksize);
+  }
+
   log_i("------------detect start------------");
 
   while (true) {
@@ -263,6 +268,11 @@ static void audio_detect_task_m5(void *arg) {
     }
 
     if (g_sr_data_m5->mode == SR_MODE_COMMAND) {
+      // Skip command detection if multinet is not initialized
+      if (g_sr_data_m5->multinet == NULL || g_sr_data_m5->model_data == NULL) {
+        continue;
+      }
+
       esp_mn_state_t mn_state = ESP_MN_STATE_DETECTING;
       mn_state = g_sr_data_m5->multinet->detect(g_sr_data_m5->model_data, res->data);
 
@@ -374,27 +384,33 @@ esp_err_t sr_start_m5(
   g_sr_data_m5->afe_data = g_sr_data_m5->afe_handle->create_from_config(afe_config);
   afe_config_free(afe_config);
 
-  // Load Custom Command Detection
-  char *mn_name = esp_srmodel_filter(models_m5, ESP_MN_PREFIX, ESP_MN_ENGLISH);
-  log_d("load multinet '%s'", mn_name);
-  g_sr_data_m5->multinet = esp_mn_handle_from_name(mn_name);
-  log_d("load model_data '%s'", mn_name);
-  g_sr_data_m5->model_data = g_sr_data_m5->multinet->create(mn_name, 5760);
+  // Load Custom Command Detection only if commands are provided
+  if (cmd_number > 0) {
+    char *mn_name = esp_srmodel_filter(models_m5, ESP_MN_PREFIX, ESP_MN_ENGLISH);
+    log_d("load multinet '%s'", mn_name);
+    g_sr_data_m5->multinet = esp_mn_handle_from_name(mn_name);
+    log_d("load model_data '%s'", mn_name);
+    g_sr_data_m5->model_data = g_sr_data_m5->multinet->create(mn_name, 5760);
 
-  // Add commands
-  esp_mn_commands_alloc((esp_mn_iface_t *)g_sr_data_m5->multinet, (model_iface_data_t *)g_sr_data_m5->model_data);
-  log_i("add %d commands", cmd_number);
-  for (size_t i = 0; i < cmd_number; i++) {
-    esp_mn_commands_add(sr_commands[i].command_id, (char *)(sr_commands[i].phoneme));
-    log_i("  cmd[%d] phrase[%d]:'%s'", sr_commands[i].command_id, i, sr_commands[i].str);
-  }
-
-  // Load commands
-  esp_mn_error_t *err_id = esp_mn_commands_update();
-  if (err_id) {
-    for (int i = 0; i < err_id->num; i++) {
-      log_e("err cmd id:%d", err_id->phrases[i]->command_id);
+    // Add commands
+    esp_mn_commands_alloc((esp_mn_iface_t *)g_sr_data_m5->multinet, (model_iface_data_t *)g_sr_data_m5->model_data);
+    log_i("add %d commands", cmd_number);
+    for (size_t i = 0; i < cmd_number; i++) {
+      esp_mn_commands_add(sr_commands[i].command_id, (char *)(sr_commands[i].phoneme));
+      log_i("  cmd[%d] phrase[%d]:'%s'", sr_commands[i].command_id, i, sr_commands[i].str);
     }
+
+    // Load commands
+    esp_mn_error_t *err_id = esp_mn_commands_update();
+    if (err_id) {
+      for (int i = 0; i < err_id->num; i++) {
+        log_e("err cmd id:%d", err_id->phrases[i]->command_id);
+      }
+    }
+  } else {
+    log_i("No commands provided, skipping multinet initialization (wakeword-only mode)");
+    g_sr_data_m5->multinet = NULL;
+    g_sr_data_m5->model_data = NULL;
   }
 
   //Start tasks
@@ -434,7 +450,7 @@ esp_err_t sr_stop_m5(void) {
     g_sr_data_m5->event_group = NULL;
   }
 
-  if (g_sr_data_m5->model_data) {
+  if (g_sr_data_m5->model_data && g_sr_data_m5->multinet) {
     g_sr_data_m5->multinet->destroy(g_sr_data_m5->model_data);
   }
 
