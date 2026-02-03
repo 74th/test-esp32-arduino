@@ -111,17 +111,6 @@ void ESP_SR_M5Unified_Class::feedAudio(const int16_t *data, size_t samples) {
     return;
   }
 
-  // 音声レベルのチェック（デバッグ用）
-  static uint32_t feed_count = 0;
-  if (++feed_count <= 3 || feed_count % 100 == 0) {
-    int32_t sum = 0;
-    for (size_t i = 0; i < samples && i < 10; i++) {
-      sum += abs(data[i]);
-    }
-    log_i("feedAudio: samples=%d, avg_level=%d, first_samples=[%d,%d,%d,%d], feed_count=%d",
-          samples, sum / 10, data[0], data[1], data[2], data[3], feed_count);
-  }
-
   // データをグローバルバッファにコピー
   if (xSemaphoreTake(g_audio_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
     size_t copy_samples = samples;
@@ -154,26 +143,18 @@ esp_err_t ESP_SR_M5Unified_Class::_fill(void *out, size_t len, size_t *bytes_rea
 
   *bytes_read = 0;
 
-  static uint32_t fill_call_count = 0;
-  if (++fill_call_count <= 5 || fill_call_count % 50 == 0) {
-    log_i("_fill: called, requested len=%d bytes (%d samples), call#=%d", len, len/2, fill_call_count);
-  }
-
   // 短いタイムアウトで待機（最大50ms）
   TickType_t start_tick = xTaskGetTickCount();
   TickType_t max_wait_ticks = pdMS_TO_TICKS(50);
 
-  static uint32_t fill_count = 0;
   static uint32_t timeout_count = 0;
-  bool waited = false;
 
   while (!g_has_new_data) {
-    waited = true;
     TickType_t current_tick = xTaskGetTickCount();
     if ((current_tick - start_tick) >= max_wait_ticks) {
       // タイムアウト：無音データを返す
       timeout_count++;
-      if (timeout_count % 20 == 1) {
+      if (timeout_count % 100 == 1) {
         log_w("_fill: timeout waiting for data, count=%d", timeout_count);
       }
       // 無音データ（ゼロ）で埋める
@@ -206,11 +187,6 @@ esp_err_t ESP_SR_M5Unified_Class::_fill(void *out, size_t len, size_t *bytes_rea
     memcpy(out, g_audio_buffer, bytes_to_copy);
     *bytes_read = bytes_to_copy;
     g_has_new_data = false;
-
-    if (++fill_count % 50 == 0) {
-      log_d("_fill: bytes=%d, samples=%d, waited=%d, fill_count=%d, timeouts=%d",
-            bytes_to_copy, samples_to_copy, waited, fill_count, timeout_count);
-    }
 
     xSemaphoreGive(g_audio_mutex);
     return ESP_OK;

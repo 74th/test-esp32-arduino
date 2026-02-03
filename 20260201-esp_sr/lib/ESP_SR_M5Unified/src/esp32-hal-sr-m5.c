@@ -180,34 +180,18 @@ static void audio_feed_task_m5(void *arg) {
     }
 
     static uint32_t feed_task_count = 0;
-    if (++feed_task_count % 50 == 0) {
-      log_d("audio_feed_task_m5: bytes_read=%d, chunksize=%d, count=%d", bytes_read, audio_chunksize, feed_task_count);
-    }
+    feed_task_count++;
 
     /* Channel Adjust */
     if (feed_task_count == 1) {
-      log_i("Channel conversion: rx_chan_num=%d, SR_CHANNEL_NUM=%d", g_sr_data_m5->rx_chan_num, SR_CHANNEL_NUM);
+      log_i("Channel conversion: rx_chan_num=%d -> SR_CHANNEL_NUM=%d", g_sr_data_m5->rx_chan_num, SR_CHANNEL_NUM);
     }
 
     if (g_sr_data_m5->rx_chan_num == 1) {
-      // Log first conversion for debugging
-      if (feed_task_count == 1) {
-        log_i("Converting mono to 3-ch: first 4 samples: [%d,%d,%d,%d]",
-              audio_buffer[0], audio_buffer[1], audio_buffer[2], audio_buffer[3]);
-      }
-
       for (int i = audio_chunksize - 1; i >= 0; i--) {
         audio_buffer[i * SR_CHANNEL_NUM + 2] = 0;
         audio_buffer[i * SR_CHANNEL_NUM + 1] = 0;
         audio_buffer[i * SR_CHANNEL_NUM + 0] = audio_buffer[i];
-      }
-
-      if (feed_task_count == 1) {
-        log_i("After conversion: first 12 values: [%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d]",
-              audio_buffer[0], audio_buffer[1], audio_buffer[2],
-              audio_buffer[3], audio_buffer[4], audio_buffer[5],
-              audio_buffer[6], audio_buffer[7], audio_buffer[8],
-              audio_buffer[9], audio_buffer[10], audio_buffer[11]);
       }
     } else if (g_sr_data_m5->rx_chan_num == 2) {
       for (int i = audio_chunksize - 1; i >= 0; i--) {
@@ -245,20 +229,14 @@ static void audio_detect_task_m5(void *arg) {
 
     afe_fetch_result_t *res = g_sr_data_m5->afe_handle->fetch(g_sr_data_m5->afe_data);
 
-    static uint32_t detect_count = 0;
     static uint32_t fetch_fail_count = 0;
 
     if (!res || res->ret_value == ESP_FAIL) {
       fetch_fail_count++;
-      if (fetch_fail_count % 100 == 0) {
-        log_w("audio_detect_task_m5: fetch failed, count=%d, res=%p", fetch_fail_count, res);
+      if (fetch_fail_count % 100 == 1) {
+        log_w("audio_detect_task_m5: fetch failed, count=%d", fetch_fail_count);
       }
       continue;
-    }
-
-    if (++detect_count <= 5 || detect_count % 50 == 0) {
-      log_i("audio_detect_task_m5: mode=%d, wakeup_state=%d, detect_count=%d, fetch_fails=%d",
-            g_sr_data_m5->mode, res->wakeup_state, detect_count, fetch_fail_count);
     }
 
     if (g_sr_data_m5->mode == SR_MODE_WAKEWORD) {
