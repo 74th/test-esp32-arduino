@@ -6,6 +6,7 @@
 #include "ESP_SR_M5Unified.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "esp32-hal-log.h"
 #include <string.h>
 
 // グローバルオーディオバッファとセマフォ
@@ -106,13 +107,26 @@ bool ESP_SR_M5Unified_Class::resume(void) {
 
 void ESP_SR_M5Unified_Class::feedAudio(const int16_t *data, size_t samples) {
   if (!data || samples == 0 || g_audio_mutex == NULL) {
+    log_w("feedAudio: invalid params - data=%p, samples=%d, mutex=%p", data, samples, g_audio_mutex);
     return;
+  }
+
+  // 音声レベルのチェック（デバッグ用）
+  static uint32_t feed_count = 0;
+  if (++feed_count <= 3 || feed_count % 100 == 0) {
+    int32_t sum = 0;
+    for (size_t i = 0; i < samples && i < 10; i++) {
+      sum += abs(data[i]);
+    }
+    log_i("feedAudio: samples=%d, avg_level=%d, first_samples=[%d,%d,%d,%d], feed_count=%d",
+          samples, sum / 10, data[0], data[1], data[2], data[3], feed_count);
   }
 
   // データをグローバルバッファにコピー
   if (xSemaphoreTake(g_audio_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
     size_t copy_samples = samples;
     if (copy_samples > g_audio_buffer_capacity) {
+      log_w("feedAudio: truncating %d samples to %d", copy_samples, g_audio_buffer_capacity);
       copy_samples = g_audio_buffer_capacity;
     }
 
@@ -121,6 +135,8 @@ void ESP_SR_M5Unified_Class::feedAudio(const int16_t *data, size_t samples) {
     g_has_new_data = true;
 
     xSemaphoreGive(g_audio_mutex);
+  } else {
+    log_e("feedAudio: failed to take mutex");
   }
 }
 
@@ -132,21 +148,38 @@ void ESP_SR_M5Unified_Class::_sr_event(sr_event_t event, int command_id, int phr
 
 esp_err_t ESP_SR_M5Unified_Class::_fill(void *out, size_t len, size_t *bytes_read, uint32_t timeout_ms) {
   if (out == NULL || bytes_read == NULL || g_audio_mutex == NULL) {
+    log_e("_fill: invalid params");
     return ESP_FAIL;
   }
 
   *bytes_read = 0;
 
-  // タイムアウト処理
+  static uint32_t fill_call_count = 0;
+  if (++fill_call_count <= 5 || fill_call_count % 50 == 0) {
+    log_i("_fill: called, requested len=%d bytes (%d samples), call#=%d", len, len/2, fill_call_count);
+  }
+
+  // 短いタイムアウトで待機（最大50ms）
   TickType_t start_tick = xTaskGetTickCount();
-  TickType_t timeout_ticks = pdMS_TO_TICKS(timeout_ms);
+  TickType_t max_wait_ticks = pdMS_TO_TICKS(50);
+
+  static uint32_t fill_count = 0;
+  static uint32_t timeout_count = 0;
+  bool waited = false;
 
   while (!g_has_new_data) {
-    if (timeout_ms != portMAX_DELAY) {
-      TickType_t current_tick = xTaskGetTickCount();
-      if ((current_tick - start_tick) >= timeout_ticks) {
-        return ESP_ERR_TIMEOUT;
+    waited = true;
+    TickType_t current_tick = xTaskGetTickCount();
+    if ((current_tick - start_tick) >= max_wait_ticks) {
+      // タイムアウト：無音データを返す
+      timeout_count++;
+      if (timeout_count % 20 == 1) {
+        log_w("_fill: timeout waiting for data, count=%d", timeout_count);
       }
+      // 無音データ（ゼロ）で埋める
+      memset(out, 0, len);
+      *bytes_read = len;
+      return ESP_OK;
     }
     vTaskDelay(pdMS_TO_TICKS(5));
   }
@@ -157,18 +190,33 @@ esp_err_t ESP_SR_M5Unified_Class::_fill(void *out, size_t len, size_t *bytes_rea
     size_t bytes_to_copy = samples_to_copy * sizeof(int16_t);
 
     if (bytes_to_copy > len) {
+      log_w("_fill: requested=%d, available=%d, truncating", len, bytes_to_copy);
       bytes_to_copy = len;
       samples_to_copy = len / sizeof(int16_t);
+    } else if (bytes_to_copy < len) {
+      // 不足分はゼロで埋める
+      memcpy(out, g_audio_buffer, bytes_to_copy);
+      memset((char*)out + bytes_to_copy, 0, len - bytes_to_copy);
+      *bytes_read = len;
+      g_has_new_data = false;
+      xSemaphoreGive(g_audio_mutex);
+      return ESP_OK;
     }
 
     memcpy(out, g_audio_buffer, bytes_to_copy);
     *bytes_read = bytes_to_copy;
     g_has_new_data = false;
 
+    if (++fill_count % 50 == 0) {
+      log_d("_fill: bytes=%d, samples=%d, waited=%d, fill_count=%d, timeouts=%d",
+            bytes_to_copy, samples_to_copy, waited, fill_count, timeout_count);
+    }
+
     xSemaphoreGive(g_audio_mutex);
     return ESP_OK;
   }
 
+  log_e("_fill: failed to take mutex");
   return ESP_FAIL;
 }
 
