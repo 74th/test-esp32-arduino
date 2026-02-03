@@ -139,16 +139,14 @@ cp build/srmodels.bin ./
 
 ## 描き込み後、実行
 
-Listening... と表示されるが、WakeWordのディテクションができていない。。。。
+Listening... と表示されるが、ウェイクアップワードを検出すると表示される。
 
-ログ上もスタックチャンモデルを読み込んだとあるが、動いていない。。。
+https://x.com/74th/status/2018644006021070944
+
+モデルが読み込まれると、シリアルのログにそのモデルが表示される。
 
 ```
-[   289][I][esp32-hal-i2c-ng.c:112] i2cInit(): Initializing I2C Master: num=1 sda=12 scl=11 freq=100000
-MC Quantized wakenet9: wakenet9_tts3h12_Hi,Stack Chan_3_0.585_0.590, tigger:v4, mode:0, p:0, (Aug 11 2025 15:20:50)
-MC Quantized wakenet9: wakenet9l_v4h8_Alexa_3_0.640_0.650, tigger:v4, mode:0, p:0, (Aug 11 2025 15:20:50)
-Quantized8 Multinet5: MN5Q8_v2_english_8_0.9_0.90, beam search:v2, (Aug 11 2025 15:20:49)
-[   875][I][esp32-hal-sr.c:359] sr_start(): add 0 commands
-[   888][I][esp32-hal-sr.c:142] audio_feed_task(): audio_chunksize=512, feed_channel=3
-[   898][I][esp32-hal-sr.c:204] audio_detect_task(): ------------detect start------------
+19:48:09.434 > Starting ESP_SR_M5...
+19:48:09.589 > MC Quantized wakenet9: wakeNet9_v1h24_Hi,ESP_3_0.63_0.635, tigger:v4, mode:4, p:0, (Dec 16 2025 14:45:55)
+19:48:10.008 > Quantized8 Multinet5: MN5Q8_v2_english_8_0.9_0.90, beam search:v2, (Dec 16 2025 14:45:55)
 ```
