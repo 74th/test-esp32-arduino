@@ -1,4 +1,6 @@
-# ESP-SR を使ってWake Up Wordsを実現
+# ESP-SR を使って M5Stack CoreS3 で Wake Up Words を実現
+
+[ESP32 Arduino の ESP_SR ライブラリ](https://github.com/espressif/arduino-esp32/tree/master/libraries/ESP_SR)を改変し、
 
 [lib/ESP_SR_M5Unified](lib/ESP_SR_M5Unified) を作成し、M5Unifiedの`M5.Mic.record(...)` で取得した音声データを ESP-SR 側に渡して、Wake Up Words を実現する。
 
