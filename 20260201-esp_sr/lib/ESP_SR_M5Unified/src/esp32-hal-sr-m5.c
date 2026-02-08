@@ -98,7 +98,7 @@ typedef struct
 
 // AFE always expects 3-channel format: [ch0, ch1, ch2]
 // For mono input: [Mic, 0, 0] (MN format)
-static int SR_CHANNEL_NUM = 3;
+static int SR_CHANNEL_NUM = 2;
 
 static srmodel_list_t *models_m5 = NULL;
 static sr_data_m5_t *g_sr_data_m5 = NULL;
@@ -161,7 +161,7 @@ static void audio_feed_task_m5(void *arg)
   log_i("audio_chunksize=%d, feed_channel=%d", audio_chunksize, SR_CHANNEL_NUM);
 
   /* Allocate audio buffer and check for result */
-  int16_t *audio_buffer = heap_caps_malloc(audio_chunksize * sizeof(int16_t) * SR_CHANNEL_NUM, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  int16_t *audio_buffer = heap_caps_malloc(audio_chunksize * sizeof(int16_t) * g_sr_data_m5->rx_chan_num, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
   if (NULL == audio_buffer)
   {
     esp_system_abort("No mem for audio buffer");
@@ -198,39 +198,6 @@ static void audio_feed_task_m5(void *arg)
     if (err != ESP_OK)
     {
       log_e("audio_feed_task_m5: fill_cb failed, err=%d", err);
-      vTaskDelay(100);
-      continue;
-    }
-
-    static uint32_t feed_task_count = 0;
-    feed_task_count++;
-
-    /* Channel Adjust */
-    if (feed_task_count == 1)
-    {
-      log_i("Channel conversion: rx_chan_num=%d -> SR_CHANNEL_NUM=%d", g_sr_data_m5->rx_chan_num, SR_CHANNEL_NUM);
-    }
-
-    if (g_sr_data_m5->rx_chan_num == 1)
-    {
-      for (int i = audio_chunksize - 1; i >= 0; i--)
-      {
-        audio_buffer[i * SR_CHANNEL_NUM + 2] = 0;
-        audio_buffer[i * SR_CHANNEL_NUM + 1] = 0;
-        audio_buffer[i * SR_CHANNEL_NUM + 0] = audio_buffer[i];
-      }
-    }
-    else if (g_sr_data_m5->rx_chan_num == 2)
-    {
-      for (int i = audio_chunksize - 1; i >= 0; i--)
-      {
-        audio_buffer[i * SR_CHANNEL_NUM + 2] = 0;
-        audio_buffer[i * SR_CHANNEL_NUM + 1] = audio_buffer[i * 2 + 1];
-        audio_buffer[i * SR_CHANNEL_NUM + 0] = audio_buffer[i * 2 + 0];
-      }
-    }
-    else
-    {
       vTaskDelay(100);
       continue;
     }

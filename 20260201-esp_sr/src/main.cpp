@@ -99,8 +99,6 @@ void setup()
 
   Serial.println("Mic initialized");
 
-  Serial.println("Mic initialized");
-
   // ESP_SR_M5Unifiedを初期化
   ESP_SR_M5.onEvent(onSrEvent);
 
@@ -114,7 +112,7 @@ void setup()
       sr_commands_len,
       SR_CHANNELS_STEREO, // 入力は2チャンネル（ステレオ）
       SR_MODE_WAKEWORD,
-      "MMN" // M=mic, M=mic → 内部で[Mic,Mic,0]形式に
+      "MM" // M=mic, M=mic → 内部で[Mic,Mic,0]形式に
   );
 #else
   bool success = ESP_SR_M5.begin(
@@ -122,7 +120,7 @@ void setup()
       sr_commands_len,
       SR_CHANNELS_MONO, // 入力は1チャンネル（モノラル）
       SR_MODE_WAKEWORD,
-      "MNN" // 内部の形式を指定（M=mic, N=none, N=none）
+      "M" // 内部の形式を指定（M=mic, N=none, N=none）
   );
 #endif
 
