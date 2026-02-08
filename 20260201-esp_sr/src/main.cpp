@@ -2,7 +2,7 @@
 #include <ESP_SR_M5Unified.h>
 
 #define WAKEWORD_ONLY 1
-#define USE_STEREO 0
+#define USE_STEREO 1
 
 #if WAKEWORD_ONLY
 // wakewordだけやりたいならコマンドは 0 個で試す
@@ -116,7 +116,7 @@ void setup()
       sr_commands_len,
       SR_CHANNELS_STEREO, // 入力は2チャンネル（ステレオ）
       SR_MODE_WAKEWORD,
-      "MM" // M=mic, M=mic → 内部で[Mic,Mic,0]形式に
+      "MMN" // M=mic, M=mic → 内部で[Mic,Mic,0]形式に
   );
 #else
   bool success = ESP_SR_M5.begin(
@@ -162,7 +162,7 @@ void loop()
   static bool waiting_wake_up_word = true;
 
 #if USE_STEREO
-  bool success = M5.Mic.record(audio_buf, AUDIO_SAMPLE_SIZE, 8000, true);
+  bool success = M5.Mic.record(audio_buf, AUDIO_SAMPLE_SIZE, 16000, true);
 #else
   // モノラル、16bit、8kHz
   bool success = M5.Mic.record(audio_buf, AUDIO_SAMPLE_SIZE, 16000, false);
