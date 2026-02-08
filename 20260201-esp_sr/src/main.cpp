@@ -108,8 +108,6 @@ void setup()
 
   // コマンド0個でWakeWordのみ
   // 注: AFE内部は常に3チャンネル形式を期待
-  // ES7210は2チャンネル出力なので、SR_CHANNELS_STEREOを使用
-  // MMフォーマット = 両方ともマイクチャンネル → 内部で[Mic1,Mic2,0]に変換
 #if USE_STEREO
   bool success = ESP_SR_M5.begin(
       sr_commands,
