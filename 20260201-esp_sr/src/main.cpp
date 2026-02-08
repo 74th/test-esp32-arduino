@@ -139,18 +139,19 @@ void setup()
   }
 }
 
+#define AUDIO_SAMPLE_SIZE 256
+
 void loop()
 {
   M5.update();
 
-  // M5.Micから256サンプル(ステレオ=512サンプル分のデータ)を読み取り
-  // 2回分を蜂積してESP-SRに渡す
-  static int16_t audio_buf[256];
-  static int16_t large_buf[512];
+  // M5.Micから256サンプル(モノラル)を読み取る
+  static int16_t audio_buf[AUDIO_SAMPLE_SIZE];
   static bool first_half = true;
   static bool waiting_wake_up_word = true;
 
-  bool success = M5.Mic.record(audio_buf, 256);
+  // モノラル、16bit、16kHz
+  bool success = M5.Mic.record(audio_buf, AUDIO_SAMPLE_SIZE, 16000, false);
 
   static uint32_t loop_count = 0;
   static uint32_t error_count = 0;
@@ -188,34 +189,20 @@ void loop()
 
   if (success)
   {
-    // 256サンプルをバッファに蓄積（2回で512サンプル）
-    if (first_half)
+    ESP_SR_M5.feedAudio(audio_buf, AUDIO_SAMPLE_SIZE);
+    uint32_t now = millis();
+    if (now - last_log_time >= 1000)
     {
-      memcpy(large_buf, audio_buf, 256 * sizeof(int16_t));
-      first_half = false;
-    }
-    else
-    {
-      memcpy(large_buf + 256, audio_buf, 256 * sizeof(int16_t));
-      // 512サンプル貫まったのでESP-SRに渡す（ステレオなので512サンプル=256フレーム）
-      ESP_SR_M5.feedAudio(large_buf, 512);
-      first_half = true;
-
-      // 1秒ごとにログ出力
-      uint32_t now = millis();
-      if (now - last_log_time >= 1000)
+      int32_t sum = 0;
+      for (int i = 0; i < 10; i++)
       {
-        int32_t sum = 0;
-        for (int i = 0; i < 10; i++)
-        {
-          sum += abs(large_buf[i]);
-        }
-        Serial.printf("loop: count=%d, avg_level=%d, errors=%d, interval=%dms\n",
-                      loop_count, sum / 10, error_count, now - last_log_time);
-        last_log_time = now;
+        sum += abs(audio_buf[i]);
       }
-      loop_count++;
+      Serial.printf("loop: count=%d, avg_level=%d, errors=%d, interval=%dms\n",
+                    loop_count, sum / 10, error_count, now - last_log_time);
+      last_log_time = now;
     }
+    loop_count++;
   }
   else
   {
