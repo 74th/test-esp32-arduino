@@ -93,10 +93,13 @@ void setup()
   M5.Display.setTextSize(2);
   M5.Display.println("Init...");
 
-  // ES7210 初期化(これで内蔵マイク側の準備が整うことが多い)
   auto mic_cfg = M5.Mic.config();
   mic_cfg.sample_rate = 16000;
-  mic_cfg.stereo = true; // ステレオ設定（ES7210は2チャンネル出力）
+#if USE_STEREO
+  mic_cfg.stereo = true;
+#else
+  mic_cfg.stereo = false;
+#endif
   M5.Mic.config(mic_cfg);
   M5.Mic.begin();
 
@@ -107,8 +110,6 @@ void setup()
 
   Serial.println("Starting ESP_SR_M5...");
 
-  // コマンド0個でWakeWordのみ
-  // 注: AFE内部は常に3チャンネル形式を期待
 #if USE_STEREO
   bool success = ESP_SR_M5.begin(
       sr_commands,
