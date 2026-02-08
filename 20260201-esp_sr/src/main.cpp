@@ -2,7 +2,7 @@
 #include <ESP_SR_M5Unified.h>
 
 #define WAKEWORD_ONLY 1
-#define USE_STEREO 1
+#define USE_STEREO 0
 
 #if WAKEWORD_ONLY
 // wakewordだけやりたいならコマンドは 0 個で試す
@@ -110,17 +110,23 @@ void setup()
   // 注: AFE内部は常に3チャンネル形式を期待
   // ES7210は2チャンネル出力なので、SR_CHANNELS_STEREOを使用
   // MMフォーマット = 両方ともマイクチャンネル → 内部で[Mic1,Mic2,0]に変換
+#if USE_STEREO
   bool success = ESP_SR_M5.begin(
       sr_commands,
       sr_commands_len,
-#if USE_STEREO
       SR_CHANNELS_STEREO, // 入力は2チャンネル（ステレオ）
-#else
-      SR_CHANNELS_MONO, // 入力は1チャンネル（モノラル）
-#endif
       SR_MODE_WAKEWORD,
       "MM" // M=mic, M=mic → 内部で[Mic,Mic,0]形式に
   );
+#else
+  bool success = ESP_SR_M5.begin(
+      sr_commands,
+      sr_commands_len,
+      SR_CHANNELS_MONO, // 入力は1チャンネル（モノラル）
+      SR_MODE_WAKEWORD,
+      "MNN" // 内部の形式を指定（M=mic, N=none, N=none）
+  );
+#endif
 
   Serial.printf("ESP_SR_M5.begin() = %d\n", success);
 
@@ -159,7 +165,7 @@ void loop()
   bool success = M5.Mic.record(audio_buf, AUDIO_SAMPLE_SIZE, 8000, true);
 #else
   // モノラル、16bit、8kHz
-  bool success = M5.Mic.record(audio_buf, AUDIO_SAMPLE_SIZE, 8000, false);
+  bool success = M5.Mic.record(audio_buf, AUDIO_SAMPLE_SIZE, 16000, false);
 #endif
 
   static uint32_t loop_count = 0;
