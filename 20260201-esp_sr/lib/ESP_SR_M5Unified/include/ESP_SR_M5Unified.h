@@ -13,7 +13,8 @@
 
 typedef void (*sr_cb_m5)(sr_event_t event, int command_id, int phrase_id);
 
-class ESP_SR_M5Unified_Class {
+class ESP_SR_M5Unified_Class
+{
 private:
   sr_cb_m5 cb;
   int16_t *audio_buffer;
@@ -36,12 +37,11 @@ public:
    * @return true if initialization succeeded
    */
   bool begin(
-    const sr_cmd_t *sr_commands,
-    size_t sr_commands_len,
-    sr_channels_t rx_chan = SR_CHANNELS_STEREO,
-    sr_mode_t mode = SR_MODE_WAKEWORD,
-    const char *input_format = "MN"
-  );
+      const sr_cmd_t *sr_commands,
+      size_t sr_commands_len,
+      sr_channels_t rx_chan = SR_CHANNELS_STEREO,
+      sr_mode_t mode = SR_MODE_WAKEWORD,
+      const char *input_format = "MN");
 
   bool end(void);
   bool setMode(sr_mode_t mode);
@@ -64,4 +64,4 @@ public:
 extern ESP_SR_M5Unified_Class ESP_SR_M5;
 #endif
 
-#endif  // CONFIG_IDF_TARGET_ESP32S3
+#endif // CONFIG_IDF_TARGET_ESP32S3

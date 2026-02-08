@@ -39,8 +39,10 @@
 
 #undef ESP_GOTO_ON_FALSE
 #define ESP_GOTO_ON_FALSE(a, err_code, goto_tag, format, ...) \
-  do {                                                        \
-    if (unlikely(!(a))) {                                     \
+  do                                                          \
+  {                                                           \
+    if (unlikely(!(a)))                                       \
+    {                                                         \
       log_e(format, ##__VA_ARGS__);                           \
       ret = err_code;                                         \
       goto goto_tag;                                          \
@@ -49,29 +51,33 @@
 
 #undef ESP_RETURN_ON_FALSE
 #define ESP_RETURN_ON_FALSE(a, err_code, format, ...) \
-  do {                                                \
-    if (unlikely(!(a))) {                             \
+  do                                                  \
+  {                                                   \
+    if (unlikely(!(a)))                               \
+    {                                                 \
       log_e(format, ##__VA_ARGS__);                   \
       return err_code;                                \
     }                                                 \
   } while (0)
 
-#define NEED_DELETE    BIT0
-#define FEED_DELETED   BIT1
+#define NEED_DELETE BIT0
+#define FEED_DELETED BIT1
 #define DETECT_DELETED BIT2
-#define PAUSE_FEED     BIT3
-#define PAUSE_DETECT   BIT4
-#define RESUME_FEED    BIT5
-#define RESUME_DETECT  BIT6
+#define PAUSE_FEED BIT3
+#define PAUSE_DETECT BIT4
+#define RESUME_FEED BIT5
+#define RESUME_DETECT BIT6
 
-typedef struct {
+typedef struct
+{
   wakenet_state_t wakenet_mode;
   esp_mn_state_t state;
   int command_id;
   int phrase_id;
 } sr_result_t;
 
-typedef struct {
+typedef struct
+{
   model_iface_data_t *model_data;
   const esp_mn_iface_t *multinet;
   const esp_afe_sr_iface_t *afe_handle;
@@ -99,36 +105,47 @@ static sr_data_m5_t *g_sr_data_m5 = NULL;
 
 esp_err_t sr_set_mode_m5(sr_mode_t mode);
 
-void sr_handler_task_m5(void *pvParam) {
-  while (true) {
+void sr_handler_task_m5(void *pvParam)
+{
+  while (true)
+  {
     sr_result_t result;
-    if (xQueueReceive(g_sr_data_m5->result_que, &result, portMAX_DELAY) != pdTRUE) {
+    if (xQueueReceive(g_sr_data_m5->result_que, &result, portMAX_DELAY) != pdTRUE)
+    {
       continue;
     }
 
-    if (WAKENET_DETECTED == result.wakenet_mode) {
-      if (g_sr_data_m5->user_cb) {
+    if (WAKENET_DETECTED == result.wakenet_mode)
+    {
+      if (g_sr_data_m5->user_cb)
+      {
         g_sr_data_m5->user_cb(g_sr_data_m5->user_cb_arg, SR_EVENT_WAKEWORD, -1, -1);
       }
       continue;
     }
 
-    if (WAKENET_CHANNEL_VERIFIED == result.wakenet_mode) {
-      if (g_sr_data_m5->user_cb) {
+    if (WAKENET_CHANNEL_VERIFIED == result.wakenet_mode)
+    {
+      if (g_sr_data_m5->user_cb)
+      {
         g_sr_data_m5->user_cb(g_sr_data_m5->user_cb_arg, SR_EVENT_WAKEWORD_CHANNEL, result.command_id, -1);
       }
       continue;
     }
 
-    if (ESP_MN_STATE_DETECTED == result.state) {
-      if (g_sr_data_m5->user_cb) {
+    if (ESP_MN_STATE_DETECTED == result.state)
+    {
+      if (g_sr_data_m5->user_cb)
+      {
         g_sr_data_m5->user_cb(g_sr_data_m5->user_cb_arg, SR_EVENT_COMMAND, result.command_id, result.phrase_id);
       }
       continue;
     }
 
-    if (ESP_MN_STATE_TIMEOUT == result.state) {
-      if (g_sr_data_m5->user_cb) {
+    if (ESP_MN_STATE_TIMEOUT == result.state)
+    {
+      if (g_sr_data_m5->user_cb)
+      {
         g_sr_data_m5->user_cb(g_sr_data_m5->user_cb_arg, SR_EVENT_TIMEOUT, -1, -1);
       }
       continue;
@@ -137,43 +154,49 @@ void sr_handler_task_m5(void *pvParam) {
   vTaskDelete(NULL);
 }
 
-static void audio_feed_task_m5(void *arg) {
+static void audio_feed_task_m5(void *arg)
+{
   size_t bytes_read = 0;
   int audio_chunksize = g_sr_data_m5->afe_handle->get_feed_chunksize(g_sr_data_m5->afe_data);
   log_i("audio_chunksize=%d, feed_channel=%d", audio_chunksize, SR_CHANNEL_NUM);
 
   /* Allocate audio buffer and check for result */
   int16_t *audio_buffer = heap_caps_malloc(audio_chunksize * sizeof(int16_t) * SR_CHANNEL_NUM, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-  if (NULL == audio_buffer) {
+  if (NULL == audio_buffer)
+  {
     esp_system_abort("No mem for audio buffer");
   }
   g_sr_data_m5->afe_in_buffer = audio_buffer;
 
-  while (true) {
+  while (true)
+  {
     EventBits_t bits = xEventGroupGetBits(g_sr_data_m5->event_group);
-    if (NEED_DELETE & bits) {
+    if (NEED_DELETE & bits)
+    {
       xEventGroupSetBits(g_sr_data_m5->event_group, FEED_DELETED);
       break;
     }
-    if (PAUSE_FEED & bits) {
+    if (PAUSE_FEED & bits)
+    {
       xEventGroupWaitBits(g_sr_data_m5->event_group, PAUSE_FEED | RESUME_FEED, 1, 1, portMAX_DELAY);
     }
 
     /* Read audio data from M5 callback */
-    if (g_sr_data_m5->fill_cb == NULL) {
+    if (g_sr_data_m5->fill_cb == NULL)
+    {
       vTaskDelay(100);
       continue;
     }
 
     esp_err_t err = g_sr_data_m5->fill_cb(
-      g_sr_data_m5->fill_cb_arg,
-      (char *)audio_buffer,
-      audio_chunksize * g_sr_data_m5->rx_chan_num * sizeof(int16_t),
-      &bytes_read,
-      portMAX_DELAY
-    );
+        g_sr_data_m5->fill_cb_arg,
+        (char *)audio_buffer,
+        audio_chunksize * g_sr_data_m5->rx_chan_num * sizeof(int16_t),
+        &bytes_read,
+        portMAX_DELAY);
 
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
       log_e("audio_feed_task_m5: fill_cb failed, err=%d", err);
       vTaskDelay(100);
       continue;
@@ -183,23 +206,31 @@ static void audio_feed_task_m5(void *arg) {
     feed_task_count++;
 
     /* Channel Adjust */
-    if (feed_task_count == 1) {
+    if (feed_task_count == 1)
+    {
       log_i("Channel conversion: rx_chan_num=%d -> SR_CHANNEL_NUM=%d", g_sr_data_m5->rx_chan_num, SR_CHANNEL_NUM);
     }
 
-    if (g_sr_data_m5->rx_chan_num == 1) {
-      for (int i = audio_chunksize - 1; i >= 0; i--) {
+    if (g_sr_data_m5->rx_chan_num == 1)
+    {
+      for (int i = audio_chunksize - 1; i >= 0; i--)
+      {
         audio_buffer[i * SR_CHANNEL_NUM + 2] = 0;
         audio_buffer[i * SR_CHANNEL_NUM + 1] = 0;
         audio_buffer[i * SR_CHANNEL_NUM + 0] = audio_buffer[i];
       }
-    } else if (g_sr_data_m5->rx_chan_num == 2) {
-      for (int i = audio_chunksize - 1; i >= 0; i--) {
+    }
+    else if (g_sr_data_m5->rx_chan_num == 2)
+    {
+      for (int i = audio_chunksize - 1; i >= 0; i--)
+      {
         audio_buffer[i * SR_CHANNEL_NUM + 2] = 0;
         audio_buffer[i * SR_CHANNEL_NUM + 1] = audio_buffer[i * 2 + 1];
         audio_buffer[i * SR_CHANNEL_NUM + 0] = audio_buffer[i * 2 + 0];
       }
-    } else {
+    }
+    else
+    {
       vTaskDelay(100);
       continue;
     }
@@ -211,24 +242,29 @@ static void audio_feed_task_m5(void *arg) {
   vTaskDelete(NULL);
 }
 
-static void audio_detect_task_m5(void *arg) {
+static void audio_detect_task_m5(void *arg)
+{
   int afe_chunksize = g_sr_data_m5->afe_handle->get_fetch_chunksize(g_sr_data_m5->afe_data);
 
   // Only check mu_chunksize if multinet is initialized
-  if (g_sr_data_m5->multinet != NULL && g_sr_data_m5->model_data != NULL) {
+  if (g_sr_data_m5->multinet != NULL && g_sr_data_m5->model_data != NULL)
+  {
     int mu_chunksize = g_sr_data_m5->multinet->get_samp_chunksize(g_sr_data_m5->model_data);
     assert(mu_chunksize == afe_chunksize);
   }
 
   log_i("------------detect start------------");
 
-  while (true) {
+  while (true)
+  {
     EventBits_t bits = xEventGroupGetBits(g_sr_data_m5->event_group);
-    if (NEED_DELETE & bits) {
+    if (NEED_DELETE & bits)
+    {
       xEventGroupSetBits(g_sr_data_m5->event_group, DETECT_DELETED);
       break;
     }
-    if (PAUSE_DETECT & bits) {
+    if (PAUSE_DETECT & bits)
+    {
       xEventGroupWaitBits(g_sr_data_m5->event_group, PAUSE_DETECT | RESUME_DETECT, 1, 1, portMAX_DELAY);
     }
 
@@ -236,67 +272,79 @@ static void audio_detect_task_m5(void *arg) {
 
     static uint32_t fetch_fail_count = 0;
 
-    if (!res || res->ret_value == ESP_FAIL) {
+    if (!res || res->ret_value == ESP_FAIL)
+    {
       fetch_fail_count++;
-      if (fetch_fail_count % 100 == 1) {
+      if (fetch_fail_count % 100 == 1)
+      {
         log_w("audio_detect_task_m5: fetch failed, count=%d", fetch_fail_count);
       }
       continue;
     }
 
-    if (g_sr_data_m5->mode == SR_MODE_WAKEWORD) {
-      if (res->wakeup_state == WAKENET_DETECTED) {
+    if (g_sr_data_m5->mode == SR_MODE_WAKEWORD)
+    {
+      if (res->wakeup_state == WAKENET_DETECTED)
+      {
         log_d("wakeword detected");
         sr_result_t result = {
-          .wakenet_mode = WAKENET_DETECTED,
-          .state = ESP_MN_STATE_DETECTING,
-          .command_id = 0,
-          .phrase_id = 0,
+            .wakenet_mode = WAKENET_DETECTED,
+            .state = ESP_MN_STATE_DETECTING,
+            .command_id = 0,
+            .phrase_id = 0,
         };
         xQueueSend(g_sr_data_m5->result_que, &result, 0);
-      } else if (res->wakeup_state == WAKENET_CHANNEL_VERIFIED) {
+      }
+      else if (res->wakeup_state == WAKENET_CHANNEL_VERIFIED)
+      {
         sr_set_mode_m5(SR_MODE_OFF);
         log_d("AFE_FETCH_CHANNEL_VERIFIED, channel index: %d", res->trigger_channel_id);
         sr_result_t result = {
-          .wakenet_mode = WAKENET_CHANNEL_VERIFIED,
-          .state = ESP_MN_STATE_DETECTING,
-          .command_id = res->trigger_channel_id,
-          .phrase_id = 0,
+            .wakenet_mode = WAKENET_CHANNEL_VERIFIED,
+            .state = ESP_MN_STATE_DETECTING,
+            .command_id = res->trigger_channel_id,
+            .phrase_id = 0,
         };
         xQueueSend(g_sr_data_m5->result_que, &result, 0);
       }
     }
 
-    if (g_sr_data_m5->mode == SR_MODE_COMMAND) {
+    if (g_sr_data_m5->mode == SR_MODE_COMMAND)
+    {
       // Skip command detection if multinet is not initialized
-      if (g_sr_data_m5->multinet == NULL || g_sr_data_m5->model_data == NULL) {
+      if (g_sr_data_m5->multinet == NULL || g_sr_data_m5->model_data == NULL)
+      {
         continue;
       }
 
       esp_mn_state_t mn_state = ESP_MN_STATE_DETECTING;
       mn_state = g_sr_data_m5->multinet->detect(g_sr_data_m5->model_data, res->data);
 
-      if (ESP_MN_STATE_DETECTING == mn_state) {
+      if (ESP_MN_STATE_DETECTING == mn_state)
+      {
         continue;
       }
 
-      if (ESP_MN_STATE_TIMEOUT == mn_state) {
+      if (ESP_MN_STATE_TIMEOUT == mn_state)
+      {
         sr_set_mode_m5(SR_MODE_OFF);
         log_d("Time out");
         sr_result_t result = {
-          .wakenet_mode = WAKENET_NO_DETECT,
-          .state = mn_state,
-          .command_id = 0,
-          .phrase_id = 0,
+            .wakenet_mode = WAKENET_NO_DETECT,
+            .state = mn_state,
+            .command_id = 0,
+            .phrase_id = 0,
         };
         xQueueSend(g_sr_data_m5->result_que, &result, 0);
         continue;
       }
 
-      if (ESP_MN_STATE_DETECTED == mn_state) {
+      if (ESP_MN_STATE_DETECTED == mn_state)
+      {
         sr_set_mode_m5(SR_MODE_OFF);
         esp_mn_results_t *mn_result = g_sr_data_m5->multinet->get_results(g_sr_data_m5->model_data);
-        for (int i = 0; i < mn_result->num; i++) {
+        for (int i = 0; i < mn_result->num; i++)
+        {
           log_d("TOP %d, command_id: %d, phrase_id: %d, prob: %f", i + 1, mn_result->command_id[i], mn_result->phrase_id[i], mn_result->prob[i]);
         }
 
@@ -304,10 +352,10 @@ static void audio_detect_task_m5(void *arg) {
         int sr_phrase_id = mn_result->phrase_id[0];
         log_d("Detected command : %d, phrase: %d", sr_command_id, sr_phrase_id);
         sr_result_t result = {
-          .wakenet_mode = WAKENET_NO_DETECT,
-          .state = mn_state,
-          .command_id = sr_command_id,
-          .phrase_id = sr_phrase_id,
+            .wakenet_mode = WAKENET_NO_DETECT,
+            .state = mn_state,
+            .command_id = sr_command_id,
+            .phrase_id = sr_phrase_id,
         };
         xQueueSend(g_sr_data_m5->result_que, &result, 0);
         continue;
@@ -318,41 +366,47 @@ static void audio_detect_task_m5(void *arg) {
   vTaskDelete(NULL);
 }
 
-esp_err_t sr_set_mode_m5(sr_mode_t mode) {
+esp_err_t sr_set_mode_m5(sr_mode_t mode)
+{
   ESP_RETURN_ON_FALSE(NULL != g_sr_data_m5, ESP_ERR_INVALID_STATE, "SR is not running");
-  switch (mode) {
-    case SR_MODE_OFF:
-      if (g_sr_data_m5->mode == SR_MODE_WAKEWORD) {
-        g_sr_data_m5->afe_handle->disable_wakenet(g_sr_data_m5->afe_data);
-      }
-      break;
-    case SR_MODE_WAKEWORD:
-      if (g_sr_data_m5->mode != SR_MODE_WAKEWORD) {
-        g_sr_data_m5->afe_handle->enable_wakenet(g_sr_data_m5->afe_data);
-      }
-      break;
-    case SR_MODE_COMMAND:
-      if (g_sr_data_m5->mode == SR_MODE_WAKEWORD) {
-        g_sr_data_m5->afe_handle->disable_wakenet(g_sr_data_m5->afe_data);
-      }
-      break;
-    default: return ESP_FAIL;
+  switch (mode)
+  {
+  case SR_MODE_OFF:
+    if (g_sr_data_m5->mode == SR_MODE_WAKEWORD)
+    {
+      g_sr_data_m5->afe_handle->disable_wakenet(g_sr_data_m5->afe_data);
+    }
+    break;
+  case SR_MODE_WAKEWORD:
+    if (g_sr_data_m5->mode != SR_MODE_WAKEWORD)
+    {
+      g_sr_data_m5->afe_handle->enable_wakenet(g_sr_data_m5->afe_data);
+    }
+    break;
+  case SR_MODE_COMMAND:
+    if (g_sr_data_m5->mode == SR_MODE_WAKEWORD)
+    {
+      g_sr_data_m5->afe_handle->disable_wakenet(g_sr_data_m5->afe_data);
+    }
+    break;
+  default:
+    return ESP_FAIL;
   }
   g_sr_data_m5->mode = mode;
   return ESP_OK;
 }
 
 esp_err_t sr_start_m5(
-  sr_fill_cb_m5 fill_cb,
-  void *fill_cb_arg,
-  sr_channels_t rx_chan,
-  sr_mode_t mode,
-  const char *input_format,
-  const sr_cmd_t sr_commands[],
-  size_t cmd_number,
-  sr_event_cb_m5 cb,
-  void *cb_arg
-) {
+    sr_fill_cb_m5 fill_cb,
+    void *fill_cb_arg,
+    sr_channels_t rx_chan,
+    sr_mode_t mode,
+    const char *input_format,
+    const sr_cmd_t sr_commands[],
+    size_t cmd_number,
+    sr_event_cb_m5 cb,
+    void *cb_arg)
+{
   esp_err_t ret = ESP_OK;
   ESP_RETURN_ON_FALSE(NULL == g_sr_data_m5, ESP_ERR_INVALID_STATE, "SR already running");
 
@@ -385,7 +439,8 @@ esp_err_t sr_start_m5(
   afe_config_free(afe_config);
 
   // Load Custom Command Detection only if commands are provided
-  if (cmd_number > 0) {
+  if (cmd_number > 0)
+  {
     char *mn_name = esp_srmodel_filter(models_m5, ESP_MN_PREFIX, ESP_MN_ENGLISH);
     log_d("load multinet '%s'", mn_name);
     g_sr_data_m5->multinet = esp_mn_handle_from_name(mn_name);
@@ -395,25 +450,30 @@ esp_err_t sr_start_m5(
     // Add commands
     esp_mn_commands_alloc((esp_mn_iface_t *)g_sr_data_m5->multinet, (model_iface_data_t *)g_sr_data_m5->model_data);
     log_i("add %d commands", cmd_number);
-    for (size_t i = 0; i < cmd_number; i++) {
+    for (size_t i = 0; i < cmd_number; i++)
+    {
       esp_mn_commands_add(sr_commands[i].command_id, (char *)(sr_commands[i].phoneme));
       log_i("  cmd[%d] phrase[%d]:'%s'", sr_commands[i].command_id, i, sr_commands[i].str);
     }
 
     // Load commands
     esp_mn_error_t *err_id = esp_mn_commands_update();
-    if (err_id) {
-      for (int i = 0; i < err_id->num; i++) {
+    if (err_id)
+    {
+      for (int i = 0; i < err_id->num; i++)
+      {
         log_e("err cmd id:%d", err_id->phrases[i]->command_id);
       }
     }
-  } else {
+  }
+  else
+  {
     log_i("No commands provided, skipping multinet initialization (wakeword-only mode)");
     g_sr_data_m5->multinet = NULL;
     g_sr_data_m5->model_data = NULL;
   }
 
-  //Start tasks
+  // Start tasks
   log_d("start tasks");
   ret_val = xTaskCreatePinnedToCore(&audio_feed_task_m5, "SR Feed Task M5", 4 * 1024, NULL, 5, &g_sr_data_m5->feed_task, 0);
   ESP_GOTO_ON_FALSE(pdPASS == ret_val, ESP_FAIL, err, "Failed create audio feed task");
@@ -429,36 +489,42 @@ err:
   return ret;
 }
 
-esp_err_t sr_stop_m5(void) {
+esp_err_t sr_stop_m5(void)
+{
   ESP_RETURN_ON_FALSE(NULL != g_sr_data_m5, ESP_ERR_INVALID_STATE, "SR is not running");
 
   /**
-     * Waiting for all task stopped
-     * TODO: A task creation failure cannot be handled correctly now
-     * */
+   * Waiting for all task stopped
+   * TODO: A task creation failure cannot be handled correctly now
+   * */
   vTaskDelete(g_sr_data_m5->handle_task);
   xEventGroupSetBits(g_sr_data_m5->event_group, NEED_DELETE);
   xEventGroupWaitBits(g_sr_data_m5->event_group, NEED_DELETE | FEED_DELETED | DETECT_DELETED, 1, 1, portMAX_DELAY);
 
-  if (g_sr_data_m5->result_que) {
+  if (g_sr_data_m5->result_que)
+  {
     vQueueDelete(g_sr_data_m5->result_que);
     g_sr_data_m5->result_que = NULL;
   }
 
-  if (g_sr_data_m5->event_group) {
+  if (g_sr_data_m5->event_group)
+  {
     vEventGroupDelete(g_sr_data_m5->event_group);
     g_sr_data_m5->event_group = NULL;
   }
 
-  if (g_sr_data_m5->model_data && g_sr_data_m5->multinet) {
+  if (g_sr_data_m5->model_data && g_sr_data_m5->multinet)
+  {
     g_sr_data_m5->multinet->destroy(g_sr_data_m5->model_data);
   }
 
-  if (g_sr_data_m5->afe_data) {
+  if (g_sr_data_m5->afe_data)
+  {
     g_sr_data_m5->afe_handle->destroy(g_sr_data_m5->afe_data);
   }
 
-  if (g_sr_data_m5->afe_in_buffer) {
+  if (g_sr_data_m5->afe_in_buffer)
+  {
     heap_caps_free(g_sr_data_m5->afe_in_buffer);
   }
 
@@ -467,16 +533,18 @@ esp_err_t sr_stop_m5(void) {
   return ESP_OK;
 }
 
-esp_err_t sr_pause_m5(void) {
+esp_err_t sr_pause_m5(void)
+{
   ESP_RETURN_ON_FALSE(NULL != g_sr_data_m5, ESP_ERR_INVALID_STATE, "SR is not running");
   xEventGroupSetBits(g_sr_data_m5->event_group, PAUSE_FEED | PAUSE_DETECT);
   return ESP_OK;
 }
 
-esp_err_t sr_resume_m5(void) {
+esp_err_t sr_resume_m5(void)
+{
   ESP_RETURN_ON_FALSE(NULL != g_sr_data_m5, ESP_ERR_INVALID_STATE, "SR is not running");
   xEventGroupSetBits(g_sr_data_m5->event_group, RESUME_FEED | RESUME_DETECT);
   return ESP_OK;
 }
 
-#endif  // CONFIG_IDF_TARGET_ESP32S3
+#endif // CONFIG_IDF_TARGET_ESP32S3

@@ -10,13 +10,13 @@ static constexpr size_t sr_commands_len = 0;
 #else
 // コマンド
 static const sr_cmd_t sr_commands[] = {
-  {0, "Turn on the light", "TkN nN jc LiT"},
-  {0, "Switch on the light", "SWgp nN jc LiT"},
-  {1, "Turn off the light", "TkN eF jc LiT"},
-  {1, "Switch off the light", "SWgp eF jc LiT"},
-  {1, "Go dark", "Gb DnRK"},
-  {2, "Start fan", "STnRT FaN"},
-  {3, "Stop fan", "STnP FaN"},
+    {0, "Turn on the light", "TkN nN jc LiT"},
+    {0, "Switch on the light", "SWgp nN jc LiT"},
+    {1, "Turn off the light", "TkN eF jc LiT"},
+    {1, "Switch off the light", "SWgp eF jc LiT"},
+    {1, "Go dark", "Gb DnRK"},
+    {2, "Start fan", "STnRT FaN"},
+    {3, "Stop fan", "STnP FaN"},
 };
 static constexpr size_t sr_commands_len = 7;
 #endif
@@ -40,7 +40,7 @@ void onSrEvent(sr_event_t event, int command_id, int phrase_id)
     M5.Display.setTextSize(2);
     M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
     M5.Display.println("Listening...");
-    ESP_SR_M5.setMode(SR_MODE_WAKEWORD);  // Switch back to WakeWord detection
+    ESP_SR_M5.setMode(SR_MODE_WAKEWORD); // Switch back to WakeWord detection
 #else
     M5.Display.println("Command?");
     // コマンドモードへ切り替え
@@ -54,7 +54,7 @@ void onSrEvent(sr_event_t event, int command_id, int phrase_id)
     M5.Display.setTextSize(2);
     M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
     M5.Display.println("Listening...");
-    ESP_SR_M5.setMode(SR_MODE_WAKEWORD);  // Switch back to WakeWord detection
+    ESP_SR_M5.setMode(SR_MODE_WAKEWORD); // Switch back to WakeWord detection
     break;
 
   case SR_EVENT_COMMAND:
@@ -92,7 +92,7 @@ void setup()
   // ES7210 初期化(これで内蔵マイク側の準備が整うことが多い)
   auto mic_cfg = M5.Mic.config();
   mic_cfg.sample_rate = 16000;
-  mic_cfg.stereo = true;  // ステレオ設定（ES7210は2チャンネル出力）
+  mic_cfg.stereo = true; // ステレオ設定（ES7210は2チャンネル出力）
   M5.Mic.config(mic_cfg);
   M5.Mic.begin();
 
@@ -110,11 +110,11 @@ void setup()
   // ES7210は2チャンネル出力なので、SR_CHANNELS_STEREOを使用
   // MMフォーマット = 両方ともマイクチャンネル → 内部で[Mic1,Mic2,0]に変換
   bool success = ESP_SR_M5.begin(
-    sr_commands,
-    sr_commands_len,
-    SR_CHANNELS_STEREO,  // 入力は2チャンネル（ステレオ）
-    SR_MODE_WAKEWORD,
-    "MM"  // M=mic, M=mic → 内部で[Mic,Mic,0]形式に
+      sr_commands,
+      sr_commands_len,
+      SR_CHANNELS_STEREO, // 入力は2チャンネル（ステレオ）
+      SR_MODE_WAKEWORD,
+      "MM" // M=mic, M=mic → 内部で[Mic,Mic,0]形式に
   );
 
   Serial.printf("ESP_SR_M5.begin() = %d\n", success);
@@ -122,20 +122,22 @@ void setup()
   M5.Display.fillScreen(TFT_BLACK);
   M5.Display.setCursor(0, 0);
 
-  if (success) {
+  if (success)
+  {
     M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
     M5.Display.println("Listening...");
     M5.Display.println();
     M5.Display.setTextSize(1);
     M5.Display.println("Say: 'Hi Stack Chan'");
     Serial.println("Ready to listen!");
-  } else {
+  }
+  else
+  {
     M5.Display.setTextColor(TFT_RED, TFT_BLACK);
     M5.Display.println("Init Failed!");
     Serial.println("ERROR: Init Failed!");
   }
 }
-
 
 void loop()
 {
@@ -154,7 +156,8 @@ void loop()
   static uint32_t error_count = 0;
   static uint32_t last_log_time = 0;
 
-  if(M5.BtnA.wasClicked()) {
+  if (M5.BtnA.wasClicked())
+  {
     waiting_wake_up_word = !waiting_wake_up_word;
     Serial.println("BtnA clicked ");
     if (waiting_wake_up_word)
@@ -177,17 +180,22 @@ void loop()
     }
   }
 
-  if (!waiting_wake_up_word) {
+  if (!waiting_wake_up_word)
+  {
     // ウェイクワード待機モードでないなら音声データを捨てる
     return;
   }
 
-  if (success) {
+  if (success)
+  {
     // 256サンプルをバッファに蓄積（2回で512サンプル）
-    if (first_half) {
+    if (first_half)
+    {
       memcpy(large_buf, audio_buf, 256 * sizeof(int16_t));
       first_half = false;
-    } else {
+    }
+    else
+    {
       memcpy(large_buf + 256, audio_buf, 256 * sizeof(int16_t));
       // 512サンプル貫まったのでESP-SRに渡す（ステレオなので512サンプル=256フレーム）
       ESP_SR_M5.feedAudio(large_buf, 512);
@@ -195,9 +203,11 @@ void loop()
 
       // 1秒ごとにログ出力
       uint32_t now = millis();
-      if (now - last_log_time >= 1000) {
+      if (now - last_log_time >= 1000)
+      {
         int32_t sum = 0;
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 10; i++)
+        {
           sum += abs(large_buf[i]);
         }
         Serial.printf("loop: count=%d, avg_level=%d, errors=%d, interval=%dms\n",
@@ -206,9 +216,12 @@ void loop()
       }
       loop_count++;
     }
-  } else {
+  }
+  else
+  {
     error_count++;
-    if (error_count % 100 == 0) {
+    if (error_count % 100 == 0)
+    {
       Serial.printf("WARNING: M5.Mic.record failed, count=%d\n", error_count);
     }
   }
