@@ -113,18 +113,19 @@ void setup()
   bool success = ESP_SR_M5.begin(
       sr_commands,
       sr_commands_len,
-      SR_CHANNELS_STEREO, // 入力は2チャンネル（ステレオ）
-      SR_MODE_WAKEWORD,
-      "MM" // M=mic, M=mic → 内部で[Mic,Mic,0]形式に
+      SR_CHANNELS_STEREO
   );
 #else
+#if WAKEWORD_ONLY
+  // モノラル、WakeWordのみ
+  bool success = ESP_SR_M5.begin();
+#else
+  // モノラル、WakeWord&コマンド
   bool success = ESP_SR_M5.begin(
       sr_commands,
-      sr_commands_len,
-      SR_CHANNELS_MONO, // 入力は1チャンネル（モノラル）
-      SR_MODE_WAKEWORD,
-      "M" // 内部の形式を指定（M=mic, N=none, N=none）
+      sr_commands_len
   );
+#endif
 #endif
 
   Serial.printf("ESP_SR_M5.begin() = %d\n", success);
@@ -153,23 +154,28 @@ void setup()
 
 void loop()
 {
-  M5.update();
-
-  // M5.Micから256サンプル(モノラル)を読み取る
-  static int16_t audio_buf[AUDIO_SAMPLE_SIZE];
-  static bool first_half = true;
   static bool waiting_wake_up_word = true;
-
-#if USE_STEREO
-  bool success = M5.Mic.record(audio_buf, AUDIO_SAMPLE_SIZE, 16000, true);
-#else
-  // モノラル、16bit、8kHz
-  bool success = M5.Mic.record(audio_buf, AUDIO_SAMPLE_SIZE, 16000, false);
-#endif
 
   static uint32_t loop_count = 0;
   static uint32_t error_count = 0;
   static uint32_t last_log_time = 0;
+
+  M5.update();
+
+  // M5.Micから256サンプル(モノラル)を読み取る
+#if USE_STEREO
+  static int16_t audio_buf[AUDIO_SAMPLE_SIZE * 2];
+#else
+  static int16_t audio_buf[AUDIO_SAMPLE_SIZE];
+#endif
+
+#if USE_STEREO
+  // ステレオ、16bit、16kHz
+  bool success = M5.Mic.record(audio_buf, AUDIO_SAMPLE_SIZE, 16000, true);
+#else
+  // モノラル、16bit、16kHz
+  bool success = M5.Mic.record(audio_buf, AUDIO_SAMPLE_SIZE, 16000, false);
+#endif
 
   if (M5.BtnA.wasClicked())
   {
@@ -204,6 +210,8 @@ void loop()
   if (success)
   {
     ESP_SR_M5.feedAudio(audio_buf, AUDIO_SAMPLE_SIZE);
+
+
     uint32_t now = millis();
     if (now - last_log_time >= 1000)
     {

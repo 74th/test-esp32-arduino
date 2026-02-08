@@ -31,17 +31,15 @@ public:
    * Initialize ESP-SR with M5Unified microphone support
    * @param sr_commands Array of speech recognition commands
    * @param sr_commands_len Number of commands in the array
-   * @param rx_chan Number of microphone channels (SR_CHANNELS_MONO or SR_CHANNELS_STEREO)
    * @param mode Initial SR mode (SR_MODE_WAKEWORD or SR_MODE_COMMAND)
-   * @param input_format Channel format string (e.g., "MN" for mic+null)
+   * @param rx_chan Number of microphone channels (SR_CHANNELS_MONO or SR_CHANNELS_STEREO)
    * @return true if initialization succeeded
    */
   bool begin(
-      const sr_cmd_t *sr_commands,
-      size_t sr_commands_len,
-      sr_channels_t rx_chan = SR_CHANNELS_STEREO,
+      const sr_cmd_t *sr_commands = nullptr,
+      size_t sr_commands_len = 0,
       sr_mode_t mode = SR_MODE_WAKEWORD,
-      const char *input_format = "MN");
+      sr_channels_t rx_chan = SR_CHANNELS_MONO);
 
   bool end(void);
   bool setMode(sr_mode_t mode);

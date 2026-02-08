@@ -41,9 +41,8 @@ void ESP_SR_M5Unified_Class::onEvent(sr_cb_m5 event_cb)
 bool ESP_SR_M5Unified_Class::begin(
     const sr_cmd_t *sr_commands,
     size_t sr_commands_len,
-    sr_channels_t rx_chan,
     sr_mode_t mode,
-    const char *input_format)
+    sr_channels_t rx_chan)
 {
   // オーディオバッファの準備
   // ESP-SR expects 512 samples chunks typically
@@ -69,6 +68,12 @@ bool ESP_SR_M5Unified_Class::begin(
       audio_buffer = NULL;
       return false;
     }
+  }
+
+  const char *input_format = "M";
+  if (rx_chan == SR_CHANNELS_STEREO)
+  {
+    input_format = "MM";
   }
 
   esp_err_t err = sr_start_m5(
