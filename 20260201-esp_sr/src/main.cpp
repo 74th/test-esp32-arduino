@@ -2,7 +2,10 @@
 #include <ESP_SR_M5Unified.h>
 
 #define WAKEWORD_ONLY 1
-#define USE_STEREO 1
+
+// ステレオにすると凄く誤検出する？！
+// ひとまずモノラルで！
+#define USE_STEREO 0
 
 #if WAKEWORD_ONLY
 // wakewordだけやりたいならコマンドは 0 個で試す
