@@ -4,9 +4,9 @@
 
 [lib/ESP_SR_M5Unified](lib/ESP_SR_M5Unified) を作成し、M5Unifiedの`M5.Mic.record(...)` で取得した音声データを ESP-SR 側に渡して、Wake Up Words を実現する。
 
-## TODO
+最終的にライブラリ化指定可のリポジトリで公開しています。こちらではコマンドモードも動きました。
 
-- CommandModeが動いてないっぽい
+https://github.com/74th/ESP-SR-For-M5Unified
 
 ## PlatformIOの準備
 
