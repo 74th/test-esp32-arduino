@@ -36,7 +36,7 @@ namespace test4
         uint32_t move_duration_ms_y;
         uint32_t last_update_time_ms_x;
         uint32_t last_update_time_ms_y;
-        uint32_t easing_division_ms = 10;
+        uint32_t easing_division_ms = 50;
         bool moving_x;
         bool moving_y;
 
@@ -102,6 +102,7 @@ namespace test4
 
             if (moving_x && now - last_update_time_ms_x >= easing_division_ms)
             {
+                // Serial.println("@@X");
                 uint32_t elapsed_ms = now - move_start_time_x;
                 if (elapsed_ms >= move_duration_ms_x)
                 {
