@@ -1,3 +1,4 @@
+#if TEST_NO == 1
 #include <M5Unified.h>
 #include <ESP32Servo.h>
 
@@ -38,6 +39,8 @@ namespace test1
     void loop()
     {
         M5.update();
+
+        // ブロッキングするタイプの関数である
 
         // 90->0->180->0->90
         for (int a = 90; a >= 0; a -= 2)
@@ -84,3 +87,5 @@ namespace test1
         }
     }
 }
+
+#endif

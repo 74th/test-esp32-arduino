@@ -1,9 +1,10 @@
-#if TEST_NO == 2
-// ServoEasing を使う
+#if TEST_NO == 3
+
+// stackchan-arduino を使う
 
 #include <Ticker.h>
 #include <M5Unified.h>
-#include "ServoEasing.hpp"
+#include "Stackchan_servo.h"
 
 // CoreS3 Port A
 // static const int SERVO_PIN1 = 1;
@@ -13,12 +14,11 @@
 const int SERVO1_PIN = 6;
 const int SERVO2_PIN = 7;
 
-static ServoEasing Servo1;
-static ServoEasing Servo2;
+static StackchanSERVO Servo;
 
 #define DELAY_MS 40
 
-namespace test2
+namespace test3
 {
     void setup()
     {
@@ -26,63 +26,67 @@ namespace test2
         M5.begin(cfg);
 
         M5.Display.setTextSize(2);
+
+        M5.Display.println("@@1");
+
+        Servo.begin(SERVO1_PIN, 90, 0, SERVO2_PIN, 90, 0, ServoType::PWM);
+
         M5.Display.println("SG90 Servo test (ServoEasing)");
 
-        Servo1.attach(SERVO1_PIN, 90);
-        Servo2.attach(SERVO2_PIN, 90);
         delay(5000);
     }
 
     void loop()
     {
         M5.update();
-        // なんとブロッキングしない関数である
+
+        // Servo.moveX() などはブロッキングする関数である
 
         // 引数1: 角度
-        // 引数2: 秒速角度 度/秒
-        // Servo1.startEaseTo(110, 30);
+        // 引数2: 移動までの時間
+        // Servo.moveX(110, 30);
 
         // 左向く
-        Servo1.startEaseTo(110, 30);
+        Servo.moveX(110, 300);
 
         delay(1000);
 
         // 右向く
-        Servo1.startEaseTo(70, 60);
+        Servo.moveX(70, 900);
 
         delay(1000);
 
         // 正面
-        Servo1.startEaseTo(90, 30);
+        Servo.moveX(90, 300);
 
         delay(3000);
 
         // 下向く
-        Servo2.startEaseTo(100, 30);
+        Servo.moveY(100, 300);
 
         delay(1000);
 
         // 上向く
-        Servo2.startEaseTo(80, 60);
+        Servo.moveY(80, 900);
 
         delay(1000);
 
         // 正面
-        Servo2.startEaseTo(90, 30);
+        Servo.moveY(90, 300);
 
         delay(3000);
 
         // 傾聴
-        Servo2.startEaseTo(80, 100);
+        Servo.moveY(80, 200);
         delay(2000);
         // 頷く
-        Servo2.startEaseTo(100, 100);
-        delay(300);
-        Servo2.startEaseTo(90, 100);
-        delay(300);
-        Servo2.startEaseTo(100, 100);
-        delay(300);
-        Servo2.startEaseTo(90, 100);
+        Servo.moveY(100, 200);
+        delay(100);
+        Servo.moveY(90, 200);
+        delay(100);
+        Servo.moveY(100, 200);
+        delay(100);
+        Servo.moveY(90, 200);
 
         delay(3000);
     }
