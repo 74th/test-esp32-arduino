@@ -1,2 +1,5 @@
-void _setup();
-void _loop();
+namespace test1
+{
+    void setup();
+    void loop();
+}
