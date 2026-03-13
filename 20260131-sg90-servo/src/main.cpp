@@ -4,6 +4,8 @@
 #include <main2.hpp>
 #elif TEST_NO == 3
 #include <main3.hpp>
+#elif TEST_NO == 4
+#include <main4.hpp>
 #endif
 
 void setup()
@@ -14,6 +16,8 @@ void setup()
     test2::setup();
 #elif TEST_NO == 3
     test3::setup();
+#elif TEST_NO == 4
+    test4::setup();
 #endif
 }
 
@@ -25,5 +29,7 @@ void loop()
     test2::loop();
 #elif TEST_NO == 3
     test3::loop();
+#elif TEST_NO == 4
+    test4::loop();
 #endif
 }
